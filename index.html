@@ -109,6 +109,14 @@
           <div class="plate-tabs" id="plateTabs"></div>
         </div>
         <div class="viewer" id="viewer">
+          <div class="viewer-error" id="viewerError" hidden>
+            <p><strong>The 3D view can't start in this browser</strong> because 3D graphics (WebGL) are turned off or unavailable.
+              You can still add files, slice, see the estimate and submit.</p>
+            <p>To see the 3D view: turn on <em>hardware acceleration</em> in your browser settings and restart the browser, or try another browser or computer.</p>
+            <p class="he" lang="he" dir="rtl"><strong>התצוגה התלת־ממדית לא נטענת בדפדפן זה</strong> כי גרפיקת תלת־ממד (WebGL) כבויה או לא זמינה.
+              עדיין ניתן להוסיף קבצים, לבצע חיתוך, לראות הערכה ולהגיש.
+              כדי לראות את התצוגה: הפעילו <em>האצת חומרה</em> בהגדרות הדפדפן והפעילו אותו מחדש, או נסו דפדפן או מחשב אחר.</p>
+          </div>
           <div class="empty-state" id="emptyState">
             <p>Your models will appear here on the build plate</p>
             <p class="he" lang="he" dir="rtl">המודלים שלכם יופיעו כאן על משטח ההדפסה</p>
@@ -227,6 +235,30 @@
       <span class="he" lang="he" dir="rtl">ההערכות משוערות</span></p>
   </footer>
 
+  <div class="fatal" id="fatal" role="alert" hidden></div>
+  <script>
+    // Shows startup problems on the page instead of failing silently.
+    (function () {
+      var shown = false;
+      function show(msg) {
+        if (window.__printLabReady || shown) return;
+        shown = true;
+        var el = document.getElementById('fatal');
+        el.innerHTML = '<strong>This page could not start in your browser.</strong> Please use an up-to-date Chrome, Edge, Firefox or Safari. ' +
+          '<span class="he" lang="he" dir="rtl">הדף לא הצליח לעלות בדפדפן זה. נא להשתמש בגרסה עדכנית של Chrome, Edge, Firefox או Safari.</span>' +
+          '<small>Technical details for the lab: </small>';
+        var d = document.createElement('code');
+        d.textContent = msg;
+        el.lastChild.appendChild(d);
+        el.hidden = false;
+      }
+      window.addEventListener('error', function (e) { show((e.message || 'error') + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '')); });
+      window.addEventListener('unhandledrejection', function (e) { show(String(e.reason && e.reason.message || e.reason)); });
+      window.addEventListener('load', function () {
+        setTimeout(function () { show('The page script did not finish loading.'); }, 4000);
+      });
+    })();
+  </script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
