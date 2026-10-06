@@ -170,6 +170,12 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .empty-state { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; color: var(--ink-2); }
 .empty-state p { margin: 2px; }
 .empty-state .he { text-align: center; }
+.viewer-error { position: absolute; inset: 0; display: grid; align-content: start; gap: 4px; padding: 24px; background: #f6f7f8; color: var(--ink-2); font-size: 14px; overflow: auto; }
+.viewer-error p { margin: 4px 0; max-width: 620px; }
+.fatal { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 50; background: var(--danger); color: #fff; padding: 12px 14px; border-radius: 10px; box-shadow: var(--shadow); font-size: 14px; }
+.fatal .he { color: #fff; opacity: .9; }
+.fatal small { display: block; margin-top: 6px; opacity: .85; }
+.fatal code { font-size: 12px; word-break: break-all; }
 .pick-hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(31,36,40,.88); color: #fff; padding: 7px 12px; border-radius: 8px; font-size: 13px; text-align: center; }
 .pick-hint .he { color: #cfd6da; text-align: center; }
 

@@ -31,7 +31,32 @@ const state = {
   pageLoadedAt: Date.now(),
 };
 
-const viewer = new Viewer($('viewer'));
+/** Stand-in used when WebGL is unavailable: every view call does nothing. */
+class NullViewer {
+  constructor() { this.onFacePick = null; this.zs = []; }
+  setScene() {}
+  setModelColor() {}
+  frame() {}
+  setMode() {}
+  setFacePicking() {}
+  setPreview() {}
+  setPreviewLayers() {}
+  setHiddenFeatures() {}
+}
+
+// The 3D view needs WebGL. If the browser can't provide it (hardware
+// acceleration off, IT policy, remote desktop…), keep everything else working
+// and explain why the view is empty.
+let viewer;
+try {
+  viewer = new Viewer($('viewer'));
+} catch (err) {
+  console.error(err);
+  viewer = new NullViewer();
+  $('viewerError').hidden = false;
+  state.noViewer = true;
+  $('layFlat').dataset.unavailable = '1';
+}
 viewer.onSelect = (key) => { if (key) select(key); };
 
 function newObject(fileId, name, source, from = null) {
@@ -299,7 +324,7 @@ function refresh({ reframe = false } = {}) {
     ? arrangePlates(fitting.map((o) => ({ key: o.key, size: o.oriented.size, count: o.copies })), currentProcess().brim)
     : [];
   state.plateIndex = Math.min(state.plateIndex, Math.max(0, state.plates.length - 1));
-  $('emptyState').hidden = state.objects.length > 0;
+  $('emptyState').hidden = state.objects.length > 0 || !!state.noViewer;
   invalidateSlice();
   renderObjectList();
   renderSelected();
@@ -365,7 +390,7 @@ function renderObjectList() {
 
 function renderSelected() {
   const o = selectedObject();
-  document.querySelectorAll('.orient-tools .tool').forEach((b) => { b.disabled = !o; });
+  document.querySelectorAll('.orient-tools .tool').forEach((b) => { b.disabled = !o || !!b.dataset.unavailable; });
   $('selectedPanel').hidden = !o;
   const target = $('orientTarget');
   if (!o) {
@@ -594,7 +619,7 @@ function showTab(tab) {
   $('tabPrepare').setAttribute('aria-selected', String(!preview));
   $('tabPreview').setAttribute('aria-selected', String(preview));
   viewer.setMode(preview ? 'preview' : 'model');
-  $('layerSlider').hidden = !preview;
+  $('layerSlider').hidden = !preview || !!state.noViewer;
   $('legend').hidden = !preview;
 }
 
@@ -747,3 +772,5 @@ initProfiles();
 initControls();
 renderSelected();
 updateOrderSummary();
+if (state.noViewer) $('emptyState').hidden = true;
+window.__printLabReady = true;
