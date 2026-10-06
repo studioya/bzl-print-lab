@@ -106,16 +106,10 @@ export class Viewer {
     this.requestRender();
   }
 
-  /** Points the camera at the model (or the arranged copies), keeping the view direction. */
-  frame(size, copies = null) {
-    let minX = PLATE.width / 2 - size.x / 2, maxX = PLATE.width / 2 + size.x / 2;
-    let minY = PLATE.depth / 2 - size.y / 2, maxY = PLATE.depth / 2 + size.y / 2;
-    if (copies && copies.length) {
-      minX = Math.min(...copies.map((c) => c[0])) - size.x / 2; maxX = Math.max(...copies.map((c) => c[0])) + size.x / 2;
-      minY = Math.min(...copies.map((c) => c[1])) - size.y / 2; maxY = Math.max(...copies.map((c) => c[1])) + size.y / 2;
-    }
-    const center = new THREE.Vector3((minX + maxX) / 2, (minY + maxY) / 2, size.z / 2);
-    const radius = Math.max(Math.hypot(maxX - minX, maxY - minY, size.z) / 2, 25);
+  /** Points the camera at a box on the plate, keeping the view direction. */
+  frame(minX, maxX, minY, maxY, maxZ) {
+    const center = new THREE.Vector3((minX + maxX) / 2, (minY + maxY) / 2, maxZ / 2);
+    const radius = Math.max(Math.hypot(maxX - minX, maxY - minY, maxZ) / 2, 25);
     const dist = Math.min(Math.max(radius / Math.sin((this.camera.fov * Math.PI) / 360) * 2.1, 120), 750);
     const dir = new THREE.Vector3(-0.22, -0.78, 0.6).normalize();
     this.controls.target.copy(center);
@@ -126,37 +120,61 @@ export class Viewer {
 
   setModelColor(name) {
     this.modelColor = COLORS[name] ?? COLORS.White;
-    this.updateModelMaterial();
+    this.updateMaterials();
   }
 
-  /** positions: oriented & centred mesh; copies: [[cx,cy],...] on the plate. */
-  setModel(positions, copies, fits) {
-    this.clearGroup(this.modelGroup);
-    this.fits = fits;
-    if (!positions) { this.requestRender(); return; }
-    const geom = new THREE.BufferGeometry();
-    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geom.computeVertexNormals();
-    this.modelMaterial = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.0, flatShading: false });
-    this.updateModelMaterial();
-    for (const [cx, cy] of copies) {
-      const m = new THREE.Mesh(geom, this.modelMaterial);
-      m.position.set(cx, cy, 0);
+  /**
+   * objects: [{ key, positions (oriented, centred), version, fits }]
+   * placements: [{ key, x, y }] — what to show on the current plate
+   */
+  setScene(objects, placements, selectedKey) {
+    this.clearGroup(this.modelGroup, false);
+    this.objects = new Map(objects.map((o) => [o.key, o]));
+    // Rebuild geometry only for objects that changed.
+    this.geoms ??= new Map();
+    for (const [key, g] of this.geoms) {
+      const o = this.objects.get(key);
+      if (!o || o.version !== g.version) { g.geom.dispose(); this.geoms.delete(key); }
+    }
+    for (const o of objects) {
+      if (this.geoms.has(o.key)) continue;
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute('position', new THREE.BufferAttribute(o.positions, 3));
+      geom.computeVertexNormals();
+      this.geoms.set(o.key, { geom, version: o.version });
+    }
+    this.materials ??= {
+      normal: new THREE.MeshStandardMaterial({ roughness: 0.55 }),
+      selected: new THREE.MeshStandardMaterial({ roughness: 0.55, emissive: 0x00ae42, emissiveIntensity: 0.35 }),
+      bad: new THREE.MeshStandardMaterial({ roughness: 0.55, color: BAD }),
+      badSelected: new THREE.MeshStandardMaterial({ roughness: 0.55, color: BAD, emissive: 0x00ae42, emissiveIntensity: 0.3 }),
+    };
+    this.updateMaterials();
+    for (const pl of placements) {
+      const o = this.objects.get(pl.key);
+      const g = this.geoms.get(pl.key);
+      if (!o || !g) continue;
+      const sel = pl.key === selectedKey;
+      const mat = o.fits ? (sel ? this.materials.selected : this.materials.normal) : (sel ? this.materials.badSelected : this.materials.bad);
+      const m = new THREE.Mesh(g.geom, mat);
+      m.position.set(pl.x, pl.y, 0);
+      m.userData.key = pl.key;
       this.modelGroup.add(m);
     }
     this.requestRender();
   }
 
-  updateModelMaterial() {
-    if (!this.modelMaterial) return;
-    this.modelMaterial.color.setHex(this.fits === false ? BAD : this.modelColor);
+  updateMaterials() {
+    if (!this.materials) return;
+    this.materials.normal.color.setHex(this.modelColor);
+    this.materials.selected.color.setHex(this.modelColor);
     this.requestRender();
   }
 
-  clearGroup(g) {
+  clearGroup(g, dispose = true) {
     for (const c of [...g.children]) {
       g.remove(c);
-      c.geometry?.dispose?.();
+      if (dispose) c.geometry?.dispose?.();
     }
   }
 
@@ -176,43 +194,40 @@ export class Viewer {
   pointerDown(e) { this.downAt = [e.clientX, e.clientY]; }
 
   pointerUp(e) {
-    if (!this.onFacePick || !this.downAt) return;
+    if (!this.downAt || this.mode !== 'model') return;
     if (Math.hypot(e.clientX - this.downAt[0], e.clientY - this.downAt[1]) > 4) return; // was a drag
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
     const ray = new THREE.Raycaster();
     ray.setFromCamera(ndc, this.camera);
     const hit = ray.intersectObjects(this.modelGroup.children, false)[0];
-    if (hit && hit.face) {
-      const n = hit.face.normal.clone();
-      const cb = this.onFacePick;
-      this.setFacePicking(null);
-      cb([n.x, n.y, n.z]);
+    if (this.onFacePick) {
+      if (hit && hit.face) {
+        const n = hit.face.normal.clone();
+        const cb = this.onFacePick;
+        this.setFacePicking(null);
+        cb(hit.object.userData.key, [n.x, n.y, n.z]);
+      }
+      return;
     }
+    if (this.onSelect) this.onSelect(hit ? hit.object.userData.key : null);
   }
 
   // ---- toolpath preview ----
-  setPreview(preview, copies) {
-    this.clearGroup(this.previewGroup);
-    this.preview = preview;
-    const segs = preview.layerStart[preview.layerStart.length - 1];
-    if (!segs) return;
-    const geom = new THREE.InstancedBufferGeometry();
-    // Template: x along the segment (0..1 plus end caps), y across, z below the layer top.
+  /** previews: { key: preview buffers }; placements: [{ key, x, y }] on this plate. */
+  setPreview(previews, placements) {
+    this.clearGroup(this.previewGroup, false);
+    for (const g of this.previewGeoms?.values() || []) g.dispose();
+    this.previewGeoms = new Map();
+    this.previews = previews;
+    // All objects share the profile's layer heights; use the tallest for z values.
+    this.zs = Object.values(previews).reduce((a, p) => (p.zs.length > a.length ? p.zs : a), new Float32Array(0));
+    const total = placements.reduce((s, pl) => s + (previews[pl.key]?.layerStart.at(-1) || 0), 0);
     // Small previews use a full box per segment (Bambu-like tubes); big ones a
     // flat top ribbon, which is 6× cheaper to draw on modest GPUs.
-    const lite = segs > 600_000;
+    const lite = total > 600_000;
     const box = lite ? new THREE.PlaneGeometry(1, 1) : new THREE.BoxGeometry(1, 1, 1);
     box.translate(0.5, 0, lite ? 0 : -0.5);
-    geom.index = box.index;
-    geom.setAttribute('position', box.getAttribute('position'));
-    geom.setAttribute('normal', box.getAttribute('normal'));
-    const buf = new THREE.InstancedInterleavedBuffer(preview.data, 8);
-    geom.setAttribute('aSeg', new THREE.InterleavedBufferAttribute(buf, 4, 0));
-    geom.setAttribute('aZWH', new THREE.InterleavedBufferAttribute(buf, 3, 4));
-    geom.setAttribute('aType', new THREE.InterleavedBufferAttribute(buf, 1, 7));
-    geom.instanceCount = segs;
-    geom.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 400);
 
     const colors = FEATURES.map((f) => new THREE.Color(f.color));
     this.previewUniforms = {
@@ -257,9 +272,27 @@ export class Viewer {
         varying vec3 vColor;
         void main() { gl_FragColor = vec4(vColor, 1.0); }`,
     });
-    for (const [cx, cy] of copies) {
+
+    for (const pl of placements) {
+      const pv = previews[pl.key];
+      if (!pv) continue;
+      let geom = this.previewGeoms.get(pl.key);
+      if (!geom) {
+        geom = new THREE.InstancedBufferGeometry();
+        geom.index = box.index;
+        geom.setAttribute('position', box.getAttribute('position'));
+        geom.setAttribute('normal', box.getAttribute('normal'));
+        const buf = new THREE.InstancedInterleavedBuffer(pv.data, 8);
+        geom.setAttribute('aSeg', new THREE.InterleavedBufferAttribute(buf, 4, 0));
+        geom.setAttribute('aZWH', new THREE.InterleavedBufferAttribute(buf, 3, 4));
+        geom.setAttribute('aType', new THREE.InterleavedBufferAttribute(buf, 1, 7));
+        geom.instanceCount = pv.layerStart.at(-1);
+        geom.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 400);
+        geom.userData.preview = pv;
+        this.previewGeoms.set(pl.key, geom);
+      }
       const mesh = new THREE.Mesh(geom, mat);
-      mesh.position.set(cx, cy, 0);
+      mesh.position.set(pl.x, pl.y, 0);
       mesh.frustumCulled = false;
       this.previewGroup.add(mesh);
     }
@@ -267,12 +300,14 @@ export class Viewer {
   }
 
   setPreviewLayers(minLayer, maxLayer) {
-    if (!this.previewUniforms || !this.preview) return;
-    const zs = this.preview.zs;
+    if (!this.previewUniforms || !this.zs?.length) return;
+    const zs = this.zs;
     this.previewUniforms.uMaxZ.value = zs[Math.min(maxLayer, zs.length - 1)];
     this.previewUniforms.uMinZ.value = zs[Math.max(0, Math.min(minLayer, zs.length - 1))];
-    const geom = this.previewGroup.children[0]?.geometry;
-    if (geom) geom.instanceCount = this.preview.layerStart[Math.min(maxLayer + 1, zs.length)];
+    for (const geom of this.previewGeoms.values()) {
+      const pv = geom.userData.preview;
+      geom.instanceCount = pv.layerStart[Math.min(maxLayer + 1, pv.zs.length)];
+    }
     this.requestRender();
   }
 

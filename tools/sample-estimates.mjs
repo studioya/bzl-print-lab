@@ -12,7 +12,7 @@ for (const [k, m] of Object.entries(meshes)) {
   const t0 = Date.now();
   const obj = sliceObject(fx.f32(m), proc);
   const t1 = Date.now();
-  const est = estimatePlate(obj, [[0,0]], proc, FILAMENTS['BEZALEL GENERIC PLA'], PRINTER);
+  const est = estimatePlate([{ obj, x: 0, y: 0 }], proc, FILAMENTS['BEZALEL GENERIC PLA'], PRINTER);
   const by = est.byFeature.map((s,i)=>s>1?`${(FEATURES[i]?.en||'Travel')}:${(s/60).toFixed(1)}`:null).filter(Boolean).join(' ');
   console.log(`${k}: layers=${est.layers} time=${(est.seconds/60).toFixed(1)}min grams=${est.grams.toFixed(1)} slice=${t1-t0}ms est=${Date.now()-t1}ms support=${obj.hasSupport}\n   ${by}`);
 }

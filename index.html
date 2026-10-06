@@ -26,19 +26,19 @@
   <main>
     <section class="workspace" aria-label="Prepare your print">
       <aside class="panel" id="setup">
-        <!-- 1. Model -->
+        <!-- 1. Models -->
         <div class="step">
-          <h2><span class="num">1</span> Model <span class="he" lang="he" dir="rtl">מודל</span></h2>
+          <h2><span class="num">1</span> Models <span class="he" lang="he" dir="rtl">מודלים</span></h2>
           <label class="dropzone" id="dropzone" tabindex="0">
-            <input type="file" id="fileInput" accept=".stl,.obj,.3mf" hidden>
-            <span class="dz-main">Drop an STL, OBJ or 3MF file here, or <u>browse</u></span>
-            <span class="he" lang="he" dir="rtl">גררו לכאן קובץ STL, OBJ או 3MF, או <u>בחרו קובץ</u></span>
-            <span class="dz-hint">Max <span data-max-mb>25</span> MB · one model per submission
-              <span class="he" lang="he" dir="rtl">עד <span data-max-mb>25</span> MB · מודל אחד בכל הגשה</span></span>
+            <input type="file" id="fileInput" accept=".stl,.obj,.3mf" multiple hidden>
+            <span class="dz-main">Drop up to <span data-max-files>5</span> STL, OBJ or 3MF files here, or <u>browse</u></span>
+            <span class="he" lang="he" dir="rtl">גררו לכאן עד <span data-max-files>5</span> קבצי STL, OBJ או 3MF, או <u>בחרו קבצים</u></span>
+            <span class="dz-hint">Max <span data-max-mb>25</span> MB per file
+              <span class="he" lang="he" dir="rtl">עד <span data-max-mb>25</span> MB לקובץ</span></span>
           </label>
-          <div class="file-info" id="fileInfo" hidden>
-            <div class="file-name" id="fileName"></div>
-            <div class="file-meta" id="fileMeta"></div>
+          <p class="error" id="loadError" role="alert" hidden></p>
+          <ul class="object-list" id="objectList" aria-label="Objects on the plate"></ul>
+          <div class="selected-panel" id="selectedPanel" hidden>
             <div class="units-row">
               <label for="units">File units <span class="he" lang="he" dir="rtl">יחידות הקובץ</span></label>
               <select id="units">
@@ -50,7 +50,6 @@
             </div>
             <p class="hint warn" id="unitsHint" hidden></p>
           </div>
-          <p class="error" id="loadError" role="alert" hidden></p>
         </div>
 
         <!-- 2. Print settings -->
@@ -59,28 +58,20 @@
           <fieldset class="profiles" id="profiles">
             <legend>Printing profile <span class="he" lang="he" dir="rtl">פרופיל הדפסה</span></legend>
           </fieldset>
-          <div class="row-2">
-            <fieldset class="colors">
-              <legend>Color <span class="he" lang="he" dir="rtl">צבע</span></legend>
-              <label class="swatch"><input type="radio" name="color" value="White" checked>
-                <span class="chip white"></span> White <span class="he" lang="he" dir="rtl">לבן</span></label>
-              <label class="swatch"><input type="radio" name="color" value="Black">
-                <span class="chip black"></span> Black <span class="he" lang="he" dir="rtl">שחור</span></label>
-            </fieldset>
-            <div class="copies">
-              <label for="copies">Copies <span class="he" lang="he" dir="rtl">עותקים</span></label>
-              <div class="stepper">
-                <button type="button" id="copiesDown" aria-label="Fewer copies">−</button>
-                <input type="number" id="copies" min="1" max="10" value="1" inputmode="numeric">
-                <button type="button" id="copiesUp" aria-label="More copies">+</button>
-              </div>
-            </div>
-          </div>
+          <fieldset class="colors">
+            <legend>Color <span class="he" lang="he" dir="rtl">צבע</span></legend>
+            <label class="swatch"><input type="radio" name="color" value="White" checked>
+              <span class="chip white"></span> White <span class="he" lang="he" dir="rtl">לבן</span></label>
+            <label class="swatch"><input type="radio" name="color" value="Black">
+              <span class="chip black"></span> Black <span class="he" lang="he" dir="rtl">שחור</span></label>
+          </fieldset>
         </div>
 
         <!-- 3. Orientation -->
         <div class="step">
           <h2><span class="num">3</span> Orientation <span class="he" lang="he" dir="rtl">כיוון ההדפסה</span></h2>
+          <p class="orient-target" id="orientTarget">Select an object to orient it.
+            <span class="he" lang="he" dir="rtl">בחרו אובייקט כדי לכוון אותו.</span></p>
           <p class="hint">Orientation changes supports, strength and time.
             <span class="he" lang="he" dir="rtl">הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה.</span></p>
           <div class="orient-tools">
@@ -119,8 +110,8 @@
         </div>
         <div class="viewer" id="viewer">
           <div class="empty-state" id="emptyState">
-            <p>Your model will appear here on the build plate</p>
-            <p class="he" lang="he" dir="rtl">המודל שלכם יופיע כאן על משטח ההדפסה</p>
+            <p>Your models will appear here on the build plate</p>
+            <p class="he" lang="he" dir="rtl">המודלים שלכם יופיעו כאן על משטח ההדפסה</p>
           </div>
           <div class="layer-slider" id="layerSlider" hidden>
             <span class="layer-label" id="layerLabel"></span>

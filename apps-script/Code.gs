@@ -19,6 +19,9 @@ const SETTINGS = {
   REPLY_TO: '',
   TIMEZONE: 'Asia/Jerusalem',
   MAX_FILE_MB: 25,
+  MAX_MODEL_FILES: 5,   // originals per submission (+1 oriented 3MF made by the page)
+  MAX_OBJECTS: 50,
+  MAX_COPIES_PER_OBJECT: 10,
   ALLOWED_EXTENSIONS: ['stl', 'obj', '3mf'],
   MAX_SUBMISSIONS_PER_EMAIL_PER_HOUR: 6,
   MIN_SECONDS_ON_PAGE: 5,
@@ -42,14 +45,14 @@ const COLUMNS = [
   ['department', 'Department', 140],
   ['course', 'Course', 160],
   ['deadline', 'Deadline', 100],
-  ['copies', 'Copies', 60],
+  ['copies', 'Pieces', 60],
   ['color', 'Color', 70],
   ['profile', 'Profile', 120],
   ['estMinutes', 'Est. time (min)', 100],
   ['estCost', 'Est. cost (₪)', 100],
   ['plates', 'Plates', 60],
   ['grams', 'Filament (g)', 90],
-  ['size', 'Size (mm)', 130],
+  ['objects', 'Objects (copies, size mm)', 300],
   ['supports', 'Supports', 75],
   ['files', 'Files', 220],
   ['folder', 'Drive folder', 110],
@@ -58,7 +61,7 @@ const COLUMNS = [
 ];
 const COL = {};
 COLUMNS.forEach(function (c, i) { COL[c[0]] = i + 1; });
-const TEXT_COLUMNS = ['id', 'name', 'idNumber', 'email', 'phone', 'department', 'course', 'deadline', 'notes'];
+const TEXT_COLUMNS = ['id', 'name', 'idNumber', 'email', 'phone', 'department', 'course', 'deadline', 'objects', 'notes'];
 
 // ---------------------------------------------------------------- setup
 
@@ -171,7 +174,8 @@ function begin_(req) {
     department: v.department, course: v.course, deadline: v.deadline,
     copies: v.copies, color: v.color, profile: v.profileLabel,
     estMinutes: v.estMinutes, estCost: v.estCost, plates: v.plates, grams: v.grams,
-    size: v.size, supports: v.supports ? 'Yes' : 'No',
+    objects: v.objects.map(function (o) { return o.name + ' ×' + o.copies + ' (' + o.size + ')'; }).join('\n'),
+    supports: v.supports ? 'Yes' : 'No',
     files: '', folder: '', notes: v.notes, labNotes: '',
   };
 
@@ -195,7 +199,7 @@ function begin_(req) {
 
   CacheService.getScriptCache().put('sub_' + id, JSON.stringify({
     token: token, folderId: folder.getId(), files: [], email: v.email, name: v.name,
-    summary: row, rotation: v.rotation,
+    summary: row,
   }), 6 * 60 * 60);
   return { ok: true, id: id, token: token };
 }
@@ -207,7 +211,7 @@ function addFile_(req) {
   if (!ext || SETTINGS.ALLOWED_EXTENSIONS.indexOf(ext.toLowerCase()) < 0) throw userError_('File type not allowed.');
   const data = String(req.data || '');
   if (data.length > SETTINGS.MAX_FILE_MB * 1024 * 1024 * 1.4) throw userError_('File is too large.');
-  if (sub.files.length >= 4) throw userError_('Too many files.');
+  if (sub.files.length >= SETTINGS.MAX_MODEL_FILES + 1) throw userError_('Too many files.');
   const bytes = Utilities.base64Decode(data);
   if (bytes.length > SETTINGS.MAX_FILE_MB * 1024 * 1024) throw userError_('File is too large.');
   const prefix = req.kind === 'oriented' ? 'ORIENTED – ' : 'ORIGINAL – ';
@@ -271,10 +275,19 @@ function validate_(d, o) {
     estCost: Math.max(0, +(+o.estimatedCost || 0).toFixed(2)),
     plates: Math.max(1, Math.round(+o.plates || 1)),
     grams: Math.max(0, +(+o.filamentGrams || 0).toFixed(1)),
-    size: str(o.sizeMm, 40),
     supports: !!o.supports,
-    fileName: str(o.fileName, 150),
-    rotation: Array.isArray(o.rotation) ? o.rotation.slice(0, 9).map(Number) : null,
+    files: (Array.isArray(o.files) ? o.files : []).slice(0, SETTINGS.MAX_MODEL_FILES).map(function (f) { return str(f, 150); }),
+    objects: (Array.isArray(o.objects) ? o.objects : []).slice(0, SETTINGS.MAX_OBJECTS + 1).map(function (x) {
+      x = x || {};
+      return {
+        name: str(x.name, 160),
+        file: str(x.file, 150),
+        copies: Math.round(+x.copies),
+        size: str(x.sizeMm, 40),
+        unitScale: +x.unitScale || 1,
+        rotation: Array.isArray(x.rotation) ? x.rotation.slice(0, 9).map(Number) : null,
+      };
+    }),
   };
   const problems = [];
   if (v.name.length < 2) problems.push('name');
@@ -284,7 +297,10 @@ function validate_(d, o) {
   if (v.department.length < 2) problems.push('department');
   if (v.course.length < 2) problems.push('course');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v.deadline)) problems.push('deadline');
-  if (!(v.copies >= 1 && v.copies <= 10)) problems.push('copies');
+  if (!v.objects.length || v.objects.length > SETTINGS.MAX_OBJECTS) problems.push('objects');
+  if (v.objects.some(function (x) { return !x.name || !(x.copies >= 1 && x.copies <= SETTINGS.MAX_COPIES_PER_OBJECT); })) problems.push('copies');
+  if (v.copies !== v.objects.reduce(function (s, x) { return s + x.copies; }, 0)) problems.push('copies');
+  if (!v.files.length) problems.push('files');
   if (['White', 'Black'].indexOf(v.color) < 0) problems.push('color');
   if (!v.profileLabel) problems.push('profile');
   if (problems.length) throw userError_('Please check: ' + problems.join(', ') + '.');
@@ -324,21 +340,26 @@ function summaryText_(row, v) {
     'Course: ' + row.course,
     'Deadline: ' + row.deadline,
     '',
-    'Original file: ' + v.fileName,
+    'Original files: ' + v.files.join(', '),
     'Profile: ' + row.profile,
     'Color: ' + row.color,
-    'Copies: ' + row.copies + ' (' + row.plates + ' plate' + (row.plates > 1 ? 's' : '') + ')',
-    'Size (mm, as oriented): ' + row.size,
+    'Pieces in total: ' + row.copies + ' (' + row.plates + ' plate' + (row.plates > 1 ? 's' : '') + ')',
     'Supports: ' + row.supports,
     'Estimated time: ' + row.estMinutes + ' min',
     'Estimated cost: ₪' + row.estCost,
     'Estimated filament: ' + row.grams + ' g',
-    'Student orientation (rotation matrix applied to the original): ' + (v.rotation ? JSON.stringify(v.rotation) : 'none'),
-    '  The "ORIENTED" STL in this folder is already rotated and placed on the plate.',
+    'Objects (size in mm as oriented):',
+  ].concat(v.objects.map(function (o) {
+    return '  • ' + o.name + ' ×' + o.copies + ' — ' + o.size + ' mm, from ' + o.file +
+      (o.unitScale !== 1 ? ', scaled ×' + o.unitScale + ' (file units)' : '') +
+      ', rotation ' + JSON.stringify(o.rotation);
+  })).concat([
+    '  The "ORIENTED" 3MF in this folder has every object once, already rotated as the',
+    '  student chose: open it in Bambu Studio, set the copies and arrange.',
     '',
     'Notes:',
     row.notes || '-',
-  ].join('\n');
+  ]).join('\n');
 }
 
 function sendConfirmation_(sub) {
@@ -349,7 +370,7 @@ function sendConfirmation_(sub) {
     ['Submission number', 'מספר הגשה', r.id],
     ['Profile', 'פרופיל', r.profile],
     ['Color', 'צבע', r.color],
-    ['Copies', 'עותקים', r.copies],
+    ['Pieces', 'חלקים', r.copies],
     ['Needed by', 'תאריך יעד', r.deadline],
     ['Estimated print time', 'זמן הדפסה משוער', r.estMinutes + ' min'],
     ['Estimated cost', 'עלות משוערת', '₪' + r.estCost],
@@ -376,7 +397,7 @@ function sendConfirmation_(sub) {
 
   if (SETTINGS.LAB_NOTIFY_EMAIL && MailApp.getRemainingDailyQuota() > 0) {
     MailApp.sendEmail(SETTINGS.LAB_NOTIFY_EMAIL, 'New print submission ' + r.id + ' – ' + r.name,
-      r.name + ' (' + r.department + ', ' + r.course + ') submitted ' + r.copies + '× ' + r.profile + ', ' + r.color +
+      r.name + ' (' + r.department + ', ' + r.course + ') submitted ' + r.copies + ' piece(s), ' + r.profile + ', ' + r.color +
       ', ~' + r.estMinutes + ' min, needed by ' + r.deadline + '.\n\nSheet: ' + getSheet_().getParent().getUrl());
   }
 }

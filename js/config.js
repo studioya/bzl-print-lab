@@ -9,7 +9,9 @@ export const CONFIG = {
   pricePerMinute: 0.5,
   currency: '₪',
 
-  maxCopies: 10,
+  maxFiles: 5,      // model files per submission
+  maxObjects: 50,   // objects on the plate (after splitting)
+  maxCopies: 10,    // copies of each object
   maxFileMB: 25,
 
   // Multiplies the slicer's time estimate. Tune by comparing with Bambu Studio

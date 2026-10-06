@@ -97,10 +97,13 @@ function polylineTime(p, closed, v, a, jerk) {
 }
 
 /**
- * @param obj sliced object ({ layers: [{z,h,paths}] })
- * @param copies [[dx,dy], ...] positions of each copy on the plate (mm)
+ * Estimates one build plate. All objects share the profile's layer heights,
+ * so plate layer i is layer i of every object tall enough to have one.
+ *
+ * @param instances [{ obj, x, y }] — sliced objects ({ layers: [{z,h,paths}] })
+ *                  and where each copy sits on the plate (mm)
  */
-export function estimatePlate(obj, copies, proc, filament, printer) {
+export function estimatePlate(instances, proc, filament, printer) {
   const jerk = printer.jerkXY;
   const maxA = printer.maxAccelExtruding;
   const travelV = Math.min(proc.speed.travel, printer.maxSpeedX);
@@ -111,29 +114,31 @@ export function estimatePlate(obj, copies, proc, filament, printer) {
   const byFeature = new Float64Array(FEATURES.length + 1);
   let volume = 0;
   let total = 0;
-  let x = copies[0][0], y = copies[0][1];
+  let x = instances[0].x, y = instances[0].y;
+  const nLayers = Math.max(...instances.map((it) => it.obj.layers.length));
 
   const pathTimes = [];
-  for (let li = 0; li < obj.layers.length; li++) {
-    const layer = obj.layers[li];
+  for (let li = 0; li < nLayers; li++) {
     const first = li === 0;
-    const h = layer.h;
+    let h = 0;
     pathTimes.length = 0;
     let travelTime = 0;
 
-    // Visit copies nearest-first from the current nozzle position.
-    const left = copies.map((c, k) => k);
+    // Visit the objects that have this layer, nearest-first from the nozzle.
+    const left = [];
+    for (const it of instances) {
+      const layer = it.obj.layers[li];
+      if (layer && layer.paths.length) { left.push({ layer, dx: it.x, dy: it.y }); h = layer.h; }
+    }
+    if (!left.length) continue;
     while (left.length) {
       let best = 0, bestD = Infinity;
-      if (layer.paths.length) {
-        const p0 = layer.paths[0].p;
-        for (let j = 0; j < left.length; j++) {
-          const c = copies[left[j]];
-          const d = (p0[0] + c[0] - x) ** 2 + (p0[1] + c[1] - y) ** 2;
-          if (d < bestD) { bestD = d; best = j; }
-        }
+      for (let j = 0; j < left.length; j++) {
+        const p0 = left[j].layer.paths[0].p;
+        const d = (p0[0] + left[j].dx - x) ** 2 + (p0[1] + left[j].dy - y) ** 2;
+        if (d < bestD) { bestD = d; best = j; }
       }
-      const [dx, dy] = copies[left.splice(best, 1)[0]];
+      const { layer, dx, dy } = left.splice(best, 1)[0];
       let prevT = -1;
       for (const path of layer.paths) {
         const p = path.p;
@@ -147,7 +152,7 @@ export function estimatePlate(obj, copies, proc, filament, printer) {
           if (D > printer.retractionMinTravel && !(sameInfill && D < 3)) travelTime += retractT;
         }
         let v = featureSpeed(path.t, first, proc, path.o || 0);
-        const ar = pathArea(path.t, path.w, h);
+        const ar = pathArea(path.t, path.w, layer.h);
         v = Math.min(v, filament.maxVolumetricSpeed / ar, printer.maxSpeedX);
         const a = Math.min(featureAccel(path.t, first, proc), maxA);
         const { t, L } = polylineTime(p, path.c, v, a, jerk);
@@ -202,7 +207,7 @@ export function estimatePlate(obj, copies, proc, filament, printer) {
     volumeMm3: volume,
     grams: (volume / 1000) * filament.density,
     meters: volume / filamentArea / 1000,
-    layers: obj.layers.length,
+    layers: nLayers,
   };
 }
 

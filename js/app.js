@@ -1,4 +1,5 @@
-// Page controller: file loading, orientation, slicing, estimate and submission.
+// Page controller: files → objects on the plate, orientation, slicing,
+// estimate and submission.
 
 import { CONFIG } from './config.js';
 import { PROCESSES } from './profiles-data.js';
@@ -6,32 +7,60 @@ import { PROFILE_INFO } from './profile-info.js';
 import { FEATURES } from './slicer/features.js';
 import { TRAVEL_INDEX } from './slicer/estimate.js';
 import { loadModel, extensionOf, ACCEPTED_EXTENSIONS } from './loaders.js';
-import { IDENTITY3, matMul, axisRotation, alignRotation, orientMesh, autoOrient, boundingSize, toBinarySTL } from './mesh.js';
-import { arrangeCopies, fitsPlate, PLATE } from './arrange.js';
+import { IDENTITY3, matMul, axisRotation, alignRotation, orientMesh, autoOrient, boundingSize, splitComponents } from './mesh.js';
+import { arrangePlates, fitsPlate, PLATE } from './arrange.js';
+import { build3MF } from './export3mf.js';
 import { Viewer } from './viewer.js';
 import { submitPrint } from './submit.js';
 
 const $ = (id) => document.getElementById(id);
+const he = (text) => `<span class="he" lang="he" dir="rtl">${text}</span>`;
 
 const state = {
-  file: null,
-  source: null,        // Float32Array as loaded
-  unitScale: 1,
-  R: IDENTITY3.slice(),
-  oriented: null,      // { positions, size }
-  fits: false,
-  arrangement: null,
+  files: [],      // [{ id, file }] — originals to upload
+  objects: [],    // see newObject()
+  selected: null, // object key
+  plates: [],     // [[{ key, x, y }]] arrangement of the objects that fit
+  plateIndex: 0,
   profile: PROCESSES[1]?.name || PROCESSES[0].name,
   color: 'White',
-  copies: 1,
-  slice: null,         // worker result
-  plateIndex: 0,
+  slice: null,    // worker result
   worker: null,
   sliceJob: 0,
+  nextKey: 1,
   pageLoadedAt: Date.now(),
 };
 
 const viewer = new Viewer($('viewer'));
+viewer.onSelect = (key) => { if (key) select(key); };
+
+function newObject(fileId, name, source, from = null) {
+  const o = {
+    key: `o${state.nextKey++}`,
+    fileId,
+    name,
+    source,                         // Float32Array as loaded (file units)
+    unitScale: from ? from.unitScale : 1,
+    R: from ? from.R.slice() : IDENTITY3.slice(),
+    copies: from ? from.copies : 1,
+    oriented: null,                 // { positions, size }
+    fits: false,
+    version: 0,
+  };
+  orient(o);
+  return o;
+}
+
+function orient(o) {
+  o.oriented = orientMesh(o.source, o.R, o.unitScale);
+  o.fits = fitsPlate(o.oriented.size);
+  o.version++;
+}
+
+const objectByKey = (key) => state.objects.find((o) => o.key === key);
+const selectedObject = () => objectByKey(state.selected);
+const totalCopies = () => state.objects.reduce((s, o) => s + o.copies, 0);
+function currentProcess() { return PROCESSES.find((p) => p.name === state.profile); }
 
 // ---------------------------------------------------------------- setup UI
 
@@ -44,33 +73,44 @@ function initProfiles() {
     const spec = `${p.layerHeight} mm · ${Math.round(p.sparseInfillDensity * 100)}% · ${p.wallLoops} walls`;
     label.innerHTML = `
       <input type="radio" name="profile" value="${p.name}">
-      <span class="p-name">${info.en}<span class="he" lang="he" dir="rtl">${info.he}</span></span>
+      <span class="p-name">${info.en}${he(info.he)}</span>
       <span class="p-spec">${spec}</span>
-      <span class="p-desc">${info.descEn}<span class="he" lang="he" dir="rtl">${info.descHe}</span></span>`;
+      <span class="p-desc">${info.descEn}${he(info.descHe)}</span>`;
     const input = label.querySelector('input');
     input.checked = p.name === state.profile;
-    input.addEventListener('change', () => { state.profile = p.name; invalidateSlice(); updateOrderSummary(); });
+    input.addEventListener('change', () => { state.profile = p.name; refresh(); });
     fs.appendChild(label);
   }
 }
 
 function initControls() {
   document.querySelectorAll('[data-max-mb]').forEach((el) => { el.textContent = CONFIG.maxFileMB; });
-  $('copies').max = CONFIG.maxCopies;
+  document.querySelectorAll('[data-max-files]').forEach((el) => { el.textContent = CONFIG.maxFiles; });
 
-  // File input + drag & drop.
+  // File input + drag & drop (onto the drop zone or the 3D view).
   const dz = $('dropzone');
-  $('fileInput').addEventListener('change', (e) => e.target.files[0] && handleFile(e.target.files[0]));
+  $('fileInput').addEventListener('change', (e) => { handleFiles([...e.target.files]); e.target.value = ''; });
   dz.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileInput').click(); } });
   ['dragenter', 'dragover'].forEach((t) => dz.addEventListener(t, (e) => { e.preventDefault(); dz.classList.add('over'); }));
   ['dragleave', 'drop'].forEach((t) => dz.addEventListener(t, (e) => { e.preventDefault(); dz.classList.remove('over'); }));
-  dz.addEventListener('drop', (e) => { const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
-  // Also accept drops on the 3D view.
+  dz.addEventListener('drop', (e) => handleFiles([...e.dataTransfer.files]));
   const v = $('viewer');
   v.addEventListener('dragover', (e) => e.preventDefault());
-  v.addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+  v.addEventListener('drop', (e) => { e.preventDefault(); handleFiles([...e.dataTransfer.files]); });
 
-  $('units').addEventListener('change', (e) => { state.unitScale = +e.target.value; applyOrientation(); });
+  $('objectList').addEventListener('click', onObjectListClick);
+  $('objectList').addEventListener('change', (e) => {
+    const li = e.target.closest('[data-key]');
+    if (li && e.target.matches('input')) setCopies(li.dataset.key, e.target.value);
+  });
+
+  $('units').addEventListener('change', (e) => {
+    const o = selectedObject();
+    if (!o) return;
+    o.unitScale = +e.target.value;
+    orient(o);
+    refresh({ reframe: true });
+  });
 
   document.querySelectorAll('input[name=color]').forEach((r) => r.addEventListener('change', () => {
     state.color = r.value;
@@ -78,34 +118,25 @@ function initControls() {
     updateOrderSummary();
   }));
 
-  const setCopies = (n) => {
-    n = Math.max(1, Math.min(CONFIG.maxCopies, Math.round(+n || 1)));
-    $('copies').value = n;
-    if (n !== state.copies) {
-      state.copies = n;
-      applyOrientation(false);
-      if (state.oriented) viewer.frame(state.oriented.size, state.arrangement?.plates[0]);
-    }
+  // Orientation tools act on the selected object.
+  const rotateSelected = (R) => {
+    const o = selectedObject();
+    if (!o) return;
+    o.R = R(o);
+    orient(o);
+    refresh();
   };
-  $('copies').addEventListener('change', (e) => setCopies(e.target.value));
-  $('copiesDown').addEventListener('click', () => setCopies(state.copies - 1));
-  $('copiesUp').addEventListener('click', () => setCopies(state.copies + 1));
-
-  // Orientation tools.
   document.querySelectorAll('[data-rot]').forEach((b) => b.addEventListener('click', () => {
     const [axis, deg] = b.dataset.rot.split(':');
-    state.R = matMul(axisRotation(axis, +deg), state.R);
-    applyOrientation();
+    rotateSelected((o) => matMul(axisRotation(axis, +deg), o.R));
   }));
-  $('resetOrient').addEventListener('click', () => { state.R = IDENTITY3.slice(); applyOrientation(); });
+  $('resetOrient').addEventListener('click', () => rotateSelected(() => IDENTITY3.slice()));
   $('autoOrient').addEventListener('click', () => {
     const btn = $('autoOrient');
     btn.classList.add('active');
     setTimeout(() => {
-      const proc = currentProcess();
-      state.R = autoOrient(state.source, proc.support.thresholdAngle || 30);
+      rotateSelected((o) => autoOrient(o.source, currentProcess().support.thresholdAngle || 30));
       btn.classList.remove('active');
-      applyOrientation();
     }, 30);
   });
   $('layFlat').addEventListener('click', () => {
@@ -113,13 +144,19 @@ function initControls() {
     showTab('prepare');
     $('layFlat').classList.add('active');
     $('pickHint').hidden = false;
-    viewer.setFacePicking((normal) => {
+    viewer.setFacePicking((key, normal) => {
       cancelPick();
-      state.R = matMul(alignRotation(normal, [0, 0, -1]), state.R);
-      applyOrientation();
+      if (key) state.selected = key;
+      rotateSelected((o) => matMul(alignRotation(normal, [0, 0, -1]), o.R));
     });
   });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cancelPick(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') cancelPick();
+    if ((e.key === 'Delete' || e.key === 'Backspace') && state.selected && !e.target.closest('input, textarea, select')) {
+      e.preventDefault();
+      removeObject(state.selected);
+    }
+  });
 
   $('sliceBtn').addEventListener('click', startSlice);
   $('tabPrepare').addEventListener('click', () => showTab('prepare'));
@@ -129,8 +166,7 @@ function initControls() {
 
   // Deadline can't be in the past.
   const today = new Date();
-  const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  $('fDeadline').min = iso;
+  $('fDeadline').min = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 
   $('form').addEventListener('submit', onSubmit);
   $('form').addEventListener('input', (e) => e.target.classList.remove('invalid'));
@@ -143,92 +179,247 @@ function cancelPick() {
   $('pickHint').hidden = true;
 }
 
-function currentProcess() {
-  return PROCESSES.find((p) => p.name === state.profile);
+// ---------------------------------------------------------------- files & objects
+
+async function handleFiles(files) {
+  $('loadError').hidden = true;
+  const errors = [];
+  let added = 0;
+  for (const file of files) {
+    const ext = extensionOf(file.name);
+    if (state.files.length >= CONFIG.maxFiles) {
+      errors.push([`You can add up to ${CONFIG.maxFiles} files. Remove one to add another.`,
+        `ניתן להוסיף עד ${CONFIG.maxFiles} קבצים. הסירו קובץ כדי להוסיף אחר.`]);
+      break;
+    }
+    if (!ACCEPTED_EXTENSIONS.includes(ext)) {
+      errors.push([`${file.name}: unsupported file type. Please upload STL, OBJ or 3MF.`, `${file.name}: סוג קובץ לא נתמך. יש להעלות STL, OBJ או 3MF.`]);
+      continue;
+    }
+    if (file.size > CONFIG.maxFileMB * 1024 * 1024) {
+      errors.push([`${file.name} is larger than ${CONFIG.maxFileMB} MB. Export it with a coarser mesh and try again.`,
+        `${file.name} גדול מ־${CONFIG.maxFileMB} MB. יש לייצא אותו ברזולוציה נמוכה יותר.`]);
+      continue;
+    }
+    if (state.objects.length >= CONFIG.maxObjects) {
+      errors.push([`The plate already has ${CONFIG.maxObjects} objects.`, `על המשטח כבר יש ${CONFIG.maxObjects} אובייקטים.`]);
+      break;
+    }
+    try {
+      const positions = await loadModel(await file.arrayBuffer(), file.name);
+      const fileId = `f${state.nextKey++}`;
+      state.files.push({ id: fileId, file });
+      const o = newObject(fileId, file.name, positions);
+      state.objects.push(o);
+      state.selected = o.key;
+      added++;
+    } catch (e) {
+      console.error(e);
+      errors.push([`Could not read ${file.name}: ${e.message}`, `לא ניתן לקרוא את ${file.name}.`]);
+    }
+  }
+  if (errors.length) showLoadError(errors);
+  if (added) refresh({ reframe: true });
 }
 
-// ---------------------------------------------------------------- file loading
-
-async function handleFile(file) {
+function showLoadError(list) {
   const err = $('loadError');
-  err.hidden = true;
-  const ext = extensionOf(file.name);
-  if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-    return showLoadError(`Unsupported file type. Please upload STL, OBJ or 3MF.`, 'סוג קובץ לא נתמך. יש להעלות קובץ STL, OBJ או 3MF.');
-  }
-  if (file.size > CONFIG.maxFileMB * 1024 * 1024) {
-    return showLoadError(`The file is larger than ${CONFIG.maxFileMB} MB. Export it with a coarser mesh and try again.`,
-      `הקובץ גדול מ־${CONFIG.maxFileMB} MB. יש לייצא אותו ברזולוציה נמוכה יותר ולנסות שוב.`);
-  }
-  try {
-    const positions = await loadModel(await file.arrayBuffer(), file.name);
-    state.file = file;
-    state.source = positions;
-    state.R = IDENTITY3.slice();
-    state.unitScale = 1;
-    $('units').value = '1';
-    $('fileInfo').hidden = false;
-    $('fileName').textContent = file.name;
-    $('emptyState').hidden = true;
-    document.querySelectorAll('.orient-tools .tool').forEach((b) => { b.disabled = false; });
-    suggestUnits();
-    applyOrientation();
-    viewer.frame(state.oriented.size);
-  } catch (e) {
-    console.error(e);
-    showLoadError(`Could not read this file: ${e.message}`, 'לא ניתן לקרוא את הקובץ.');
-  }
-}
-
-function showLoadError(en, he) {
-  const err = $('loadError');
-  err.innerHTML = `${en}<span class="he" lang="he" dir="rtl">${he}</span>`;
+  err.innerHTML = list.map(([en, h]) => `<div>${en}${he(h)}</div>`).join('');
   err.hidden = false;
 }
 
-function suggestUnits() {
-  const s = boundingSize(state.source);
-  const max = Math.max(s.x, s.y, s.z);
-  const hint = $('unitsHint');
-  hint.hidden = true;
-  if (max > 0 && max < 4) {
-    hint.innerHTML = `This model is only ${fmt(max, 2)} mm across. Was it exported in cm, inches or metres? Choose the file units above.
-      <span class="he" lang="he" dir="rtl">המודל בגודל ${fmt(max, 2)} מ״מ בלבד. האם יוצא בס״מ, באינצ׳ים או במטרים? בחרו את יחידות הקובץ למעלה.</span>`;
-    hint.hidden = false;
+function removeObject(key) {
+  const i = state.objects.findIndex((o) => o.key === key);
+  if (i < 0) return;
+  const [o] = state.objects.splice(i, 1);
+  // Drop the original file once none of its objects are left on the plate.
+  if (!state.objects.some((x) => x.fileId === o.fileId)) state.files = state.files.filter((f) => f.id !== o.fileId);
+  if (state.selected === key) state.selected = state.objects[Math.min(i, state.objects.length - 1)]?.key ?? null;
+  $('loadError').hidden = true;
+  refresh({ reframe: true });
+}
+
+function splitObject(key) {
+  const o = objectByKey(key);
+  if (!o) return;
+  const parts = splitComponents(o.source);
+  if (parts.length < 2) {
+    showLoadError([[`${o.name} is a single connected part, so there is nothing to split.`, `${o.name} הוא חלק אחד רציף, אין מה לפצל.`]]);
+    return;
+  }
+  if (state.objects.length - 1 + parts.length > CONFIG.maxObjects) {
+    showLoadError([[`Splitting ${o.name} would make ${parts.length} parts, more than the ${CONFIG.maxObjects}-object limit.`,
+      `פיצול ${o.name} ייצור ${parts.length} חלקים, יותר מהמגבלה של ${CONFIG.maxObjects} אובייקטים.`]]);
+    return;
+  }
+  $('loadError').hidden = true;
+  const created = parts.map((positions, k) => newObject(o.fileId, `${o.name} – part ${k + 1}`, positions, o));
+  state.objects.splice(state.objects.indexOf(o), 1, ...created);
+  state.selected = created[0].key;
+  refresh({ reframe: true });
+}
+
+function setCopies(key, n) {
+  const o = objectByKey(key);
+  if (!o) return;
+  n = Math.max(1, Math.min(CONFIG.maxCopies, Math.round(+n || 1)));
+  if (n === o.copies) { renderObjectList(); return; }
+  o.copies = n;
+  refresh();
+}
+
+function select(key) {
+  if (state.selected === key) return;
+  state.selected = key;
+  // Re-rendering the list would steal focus from a copies box being edited.
+  document.querySelectorAll('#objectList .obj').forEach((li) => li.classList.toggle('selected', li.dataset.key === key));
+  renderSelected();
+  renderScene();
+}
+
+function onObjectListClick(e) {
+  const li = e.target.closest('[data-key]');
+  if (!li) return;
+  const key = li.dataset.key;
+  const act = e.target.closest('[data-act]')?.dataset.act;
+  if (act === 'remove') return removeObject(key);
+  select(key); // any other click on a row (copies, split, name) selects it
+  if (act === 'split') return splitObject(key);
+  if (act === 'inc' || act === 'dec') {
+    const o = objectByKey(key);
+    return setCopies(key, o.copies + (act === 'inc' ? 1 : -1));
   }
 }
 
-// ---------------------------------------------------------------- orientation & arrangement
+// ---------------------------------------------------------------- rendering the plate
 
-function applyOrientation(reorient = true) {
-  if (!state.source) return;
-  if (reorient || !state.oriented) state.oriented = orientMesh(state.source, state.R, state.unitScale);
-  const { size } = state.oriented;
-  state.fits = fitsPlate(size);
-  const proc = currentProcess();
-  state.arrangement = state.fits ? arrangeCopies(size, state.copies, proc.brim) : null;
-  const copies = state.arrangement ? state.arrangement.plates[0] : [[PLATE.width / 2, PLATE.depth / 2]];
-  viewer.setModel(state.oriented.positions, copies, state.fits);
-  viewer.setModelColor(state.color);
-  showTab('prepare');
-
-  const tris = state.source.length / 9;
-  $('fileMeta').textContent = `${fmt(size.x, 1)} × ${fmt(size.y, 1)} × ${fmt(size.z, 1)} mm · ${tris.toLocaleString()} triangles`;
-
-  const fit = $('fitStatus');
-  fit.hidden = false;
-  if (state.fits) {
-    const plates = state.arrangement.plates.length;
-    fit.className = 'fit ok';
-    fit.innerHTML = `Fits the build plate. ${state.copies > 1 ? `${state.copies} copies on ${plates} plate${plates > 1 ? 's' : ''} (up to ${state.arrangement.perPlate} per plate).` : ''}
-      <span class="he" lang="he" dir="rtl">המודל נכנס למשטח ההדפסה.${state.copies > 1 ? ` ${state.copies} עותקים על ${plates} ${plates > 1 ? 'משטחים' : 'משטח'}.` : ''}</span>`;
-  } else {
-    fit.className = 'fit bad';
-    fit.innerHTML = `Too big for the printer: the maximum is ${PLATE.width} × ${PLATE.depth} × ${PLATE.height} mm. Try rotating it, or scale the model down in your 3D software. Models that don't fit can't be submitted.
-      <span class="he" lang="he" dir="rtl">המודל גדול מדי למדפסת: הגודל המרבי הוא ${PLATE.width} × ${PLATE.depth} × ${PLATE.height} מ״מ. נסו לסובב אותו או להקטין אותו בתוכנת התלת־ממד. לא ניתן להגיש מודל שאינו נכנס.</span>`;
-  }
+function refresh({ reframe = false } = {}) {
+  const fitting = state.objects.filter((o) => o.fits);
+  state.plates = fitting.length
+    ? arrangePlates(fitting.map((o) => ({ key: o.key, size: o.oriented.size, count: o.copies })), currentProcess().brim)
+    : [];
+  state.plateIndex = Math.min(state.plateIndex, Math.max(0, state.plates.length - 1));
+  $('emptyState').hidden = state.objects.length > 0;
   invalidateSlice();
+  renderObjectList();
+  renderSelected();
+  renderFitStatus();
+  renderPlateTabs();
+  showTab('prepare');
+  renderScene();
+  if (reframe) frameCurrentPlate();
   updateOrderSummary();
+}
+
+function currentPlacements() {
+  const placements = (state.plates[state.plateIndex] || []).slice();
+  // Objects that don't fit aren't arranged; show them in the middle (in red).
+  for (const o of state.objects) if (!o.fits) placements.push({ key: o.key, x: PLATE.width / 2, y: PLATE.depth / 2 });
+  return placements;
+}
+
+function renderScene() {
+  viewer.setScene(
+    state.objects.map((o) => ({ key: o.key, positions: o.oriented.positions, version: o.version, fits: o.fits })),
+    currentPlacements(),
+    state.selected,
+  );
+  viewer.setModelColor(state.color);
+}
+
+function frameCurrentPlate() {
+  const placements = currentPlacements();
+  if (!placements.length) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = 0;
+  for (const p of placements) {
+    const s = objectByKey(p.key).oriented.size;
+    minX = Math.min(minX, p.x - s.x / 2); maxX = Math.max(maxX, p.x + s.x / 2);
+    minY = Math.min(minY, p.y - s.y / 2); maxY = Math.max(maxY, p.y + s.y / 2);
+    maxZ = Math.max(maxZ, s.z);
+  }
+  viewer.frame(minX, maxX, minY, maxY, maxZ);
+}
+
+function renderObjectList() {
+  const ul = $('objectList');
+  if (!state.objects.length) { ul.innerHTML = ''; return; }
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  ul.innerHTML = `<li class="obj-head"><span>Objects ${he('אובייקטים')}</span><span>Copies ${he('עותקים')}</span></li>` +
+    state.objects.map((o) => {
+      const s = o.oriented.size;
+      return `<li class="obj${o.key === state.selected ? ' selected' : ''}${o.fits ? '' : ' bad'}" data-key="${o.key}">
+        <span class="obj-name" title="${esc(o.name)}">${esc(o.name)}</span>
+        <span class="obj-meta">${fmt(s.x, 1)} × ${fmt(s.y, 1)} × ${fmt(s.z, 1)} mm${o.fits ? '' : ` · <span class="bad-note">Too big · גדול מדי</span>`}</span>
+        <div class="obj-actions">
+          <div class="stepper">
+            <button type="button" data-act="dec" aria-label="Fewer copies">−</button>
+            <input type="number" min="1" max="${CONFIG.maxCopies}" value="${o.copies}" inputmode="numeric" aria-label="Copies of ${esc(o.name)}">
+            <button type="button" data-act="inc" aria-label="More copies">+</button>
+          </div>
+          <button type="button" class="icon-btn" data-act="split" title="Split into separate parts · פיצול לחלקים">Split</button>
+          <button type="button" class="icon-btn danger" data-act="remove" title="Remove from plate · הסרה מהמשטח" aria-label="Remove ${esc(o.name)}">✕</button>
+        </div>
+      </li>`;
+    }).join('');
+}
+
+function renderSelected() {
+  const o = selectedObject();
+  document.querySelectorAll('.orient-tools .tool').forEach((b) => { b.disabled = !o; });
+  $('selectedPanel').hidden = !o;
+  const target = $('orientTarget');
+  if (!o) {
+    target.innerHTML = `Select an object to orient it.${he('בחרו אובייקט כדי לכוון אותו.')}`;
+    return;
+  }
+  target.innerHTML = `Orienting: <b></b>${he('מכוונים את האובייקט הנבחר')}`;
+  target.querySelector('b').textContent = o.name;
+  $('units').value = String(o.unitScale);
+  const s = boundingSize(o.source);
+  const max = Math.max(s.x, s.y, s.z);
+  const hint = $('unitsHint');
+  hint.hidden = !(max > 0 && max < 4 && o.unitScale === 1);
+  if (!hint.hidden) {
+    hint.innerHTML = `This model is only ${fmt(max, 2)} mm across. Was it exported in cm, inches or metres? Choose the file units above.
+      ${he(`המודל בגודל ${fmt(max, 2)} מ״מ בלבד. האם יוצא בס״מ, באינצ׳ים או במטרים? בחרו את יחידות הקובץ למעלה.`)}`;
+  }
+}
+
+function renderFitStatus() {
+  const fit = $('fitStatus');
+  fit.hidden = !state.objects.length;
+  if (!state.objects.length) return;
+  const bad = state.objects.filter((o) => !o.fits);
+  if (bad.length) {
+    fit.className = 'fit bad';
+    fit.innerHTML = `Too big for the printer: ${bad.map((o) => `<b>${o.name.replace(/</g, '&lt;')}</b>`).join(', ')}. The maximum is ${PLATE.width} × ${PLATE.depth} × ${PLATE.height} mm. Rotate, split or remove it, or scale it down in your 3D software. Objects that don't fit can't be submitted.
+      ${he(`גדול מדי למדפסת. הגודל המרבי הוא ${PLATE.width} × ${PLATE.depth} × ${PLATE.height} מ״מ. סובבו, פצלו או הסירו את האובייקט, או הקטינו אותו בתוכנת התלת־ממד.`)}`;
+    return;
+  }
+  const n = state.objects.length, c = totalCopies(), p = state.plates.length;
+  fit.className = 'fit ok';
+  fit.innerHTML = `Everything fits: ${n} object${n > 1 ? 's' : ''}, ${c} piece${c > 1 ? 's' : ''} in total, on ${p} plate${p > 1 ? 's' : ''}.
+    ${he(`הכול נכנס: ${n} אובייקטים, ${c} חלקים בסך הכול, על ${p} ${p > 1 ? 'משטחים' : 'משטח'}.`)}`;
+}
+
+function renderPlateTabs() {
+  const box = $('plateTabs');
+  box.innerHTML = '';
+  if (state.plates.length < 2) return;
+  state.plates.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = `Plate ${i + 1}`;
+    b.className = i === state.plateIndex ? 'active' : '';
+    b.addEventListener('click', () => {
+      state.plateIndex = i;
+      renderPlateTabs();
+      renderScene();
+      if (state.slice) showPlatePreview();
+      frameCurrentPlate();
+    });
+    box.appendChild(b);
+  });
 }
 
 // ---------------------------------------------------------------- slicing
@@ -243,10 +434,11 @@ function invalidateSlice() {
   $('estimateEmpty').hidden = false;
   $('legend').hidden = true;
   $('layerSlider').hidden = true;
-  $('plateTabs').innerHTML = '';
-  $('sliceBtn').disabled = !state.source || !state.fits;
+  $('sliceBtn').disabled = !canSlice();
   updateSubmitState();
 }
+
+const canSlice = () => state.objects.length > 0 && state.objects.every((o) => o.fits);
 
 const STAGE_LABEL = {
   slice: ['Slicing layers', 'חיתוך שכבות'],
@@ -258,7 +450,7 @@ const STAGE_LABEL = {
 };
 
 function startSlice() {
-  if (!state.source || !state.fits) return;
+  if (!canSlice()) return;
   invalidateSlice();
   cancelPick();
   const proc = currentProcess();
@@ -271,13 +463,21 @@ function startSlice() {
   $('sliceBar').style.width = '0%';
   $('sliceLabel').textContent = 'Starting…';
 
+  const fail = (en, h) => {
+    state.worker?.terminate();
+    state.worker = null;
+    state.sliceJob = 0;
+    $('sliceProgress').hidden = true;
+    $('sliceBtn').disabled = false;
+    showLoadError([[en, h]]);
+  };
   state.worker.onmessage = (e) => {
     const msg = e.data;
     if (msg.id !== job || state.sliceJob !== job) return;
     if (msg.type === 'progress') {
       $('sliceBar').style.width = `${Math.round(msg.fraction * 100)}%`;
-      const [en, he] = STAGE_LABEL[msg.stage] || [msg.stage, ''];
-      $('sliceLabel').textContent = `${en} · ${he}`;
+      const [en, h] = STAGE_LABEL[msg.stage] || [msg.stage, ''];
+      $('sliceLabel').textContent = `${en} · ${h}`;
     } else if (msg.type === 'done') {
       state.worker.terminate();
       state.worker = null;
@@ -285,26 +485,19 @@ function startSlice() {
       onSliced(msg.result);
     } else if (msg.type === 'error') {
       console.error(msg.stack || msg.message);
-      state.worker.terminate();
-      state.worker = null;
-      state.sliceJob = 0;
-      $('sliceProgress').hidden = true;
-      $('sliceBtn').disabled = false;
-      showLoadError(`Slicing failed: ${msg.message}`, 'החיתוך נכשל. נסו כיוון אחר או קובץ אחר.');
+      fail(`Slicing failed: ${msg.message}`, 'החיתוך נכשל. נסו כיוון אחר או קובץ אחר.');
     }
   };
   state.worker.onerror = (e) => {
     console.error(e);
-    $('sliceProgress').hidden = true;
-    $('sliceBtn').disabled = false;
-    showLoadError('Slicing failed in this browser. Try an up-to-date Chrome, Edge, Firefox or Safari.', 'החיתוך נכשל בדפדפן זה.');
+    fail('Slicing failed in this browser. Try an up-to-date Chrome, Edge, Firefox or Safari.', 'החיתוך נכשל בדפדפן זה.');
   };
   state.worker.postMessage({
     id: job,
-    positions: state.oriented.positions,
+    objects: state.objects.map((o) => ({ key: o.key, positions: o.oriented.positions })),
     processName: proc.name,
     filamentName: info.filament || 'BEZALEL GENERIC PLA',
-    plates: state.arrangement.plates,
+    plates: state.plates,
   });
 }
 
@@ -321,15 +514,13 @@ function onSliced(result) {
   result.grams = result.plates.reduce((s, p) => s + p.grams, 0);
   result.meters = result.plates.reduce((s, p) => s + p.meters, 0);
   state.slice = result;
-  state.plateIndex = 0;
 
   $('sliceProgress').hidden = true;
   $('sliceBtn').disabled = false;
   $('tabPreview').disabled = false;
   renderEstimate();
-  renderPlateTabs();
-  showPlatePreview(0);
   showTab('preview');
+  showPlatePreview();
   updateOrderSummary();
   updateSubmitState();
 }
@@ -343,70 +534,49 @@ function renderEstimate() {
   $('estRate').textContent = `${r.totalMinutes} min × ${CONFIG.currency}${fmtMoney(CONFIG.pricePerMinute)} / min`;
   const info = PROFILE_INFO[r.processName] || { en: r.processName, he: '' };
   const rows = [
-    ['Profile', 'פרופיל', `${info.en}`],
-    ['Copies', 'עותקים', `${state.copies}`],
+    ['Profile', 'פרופיל', info.en],
+    ['Objects', 'אובייקטים', `${state.objects.length}`],
+    ['Pieces', 'חלקים', `${totalCopies()}`],
     ['Plates', 'משטחים', `${r.plates.length}`],
     ['Filament', 'חומר', `${fmt(r.grams, 1)} g · ${fmt(r.meters, 2)} m`],
     ['Layers', 'שכבות', `${r.layers}`],
-    ['Size', 'מידות', `${fmt(state.oriented.size.x, 0)}×${fmt(state.oriented.size.y, 0)}×${fmt(state.oriented.size.z, 0)} mm`],
     ['Supports', 'תמיכות', r.hasSupport ? 'Yes · כן' : 'No · לא'],
   ];
   if (r.plates.length > 1) {
-    r.plates.forEach((p, i) => rows.push([`Plate ${i + 1}`, `משטח ${i + 1}`, `${fmtDuration(p.seconds)} · ${p.copies.length}×`]));
+    r.plates.forEach((p, i) => rows.push([`Plate ${i + 1}`, `משטח ${i + 1}`, `${fmtDuration(p.seconds)} · ${p.items.length} pcs`]));
   }
-  $('estFacts').innerHTML = rows.map(([en, he, v]) => `<dt>${en}<span class="he" lang="he" dir="rtl">${he}</span></dt><dd>${v}</dd>`).join('');
+  $('estFacts').innerHTML = rows.map(([en, h, v]) => `<dt>${en}${he(h)}</dt><dd>${v}</dd>`).join('');
 }
 
-function renderPlateTabs() {
-  const box = $('plateTabs');
-  box.innerHTML = '';
-  const plates = state.slice.plates;
-  if (plates.length < 2) return;
-  plates.forEach((p, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.textContent = `Plate ${i + 1}`;
-    b.className = i === state.plateIndex ? 'active' : '';
-    b.addEventListener('click', () => { showPlatePreview(i); renderPlateTabs(); showTab('preview'); });
-    box.appendChild(b);
-  });
-}
-
-function showPlatePreview(i) {
-  state.plateIndex = i;
+function showPlatePreview() {
   const r = state.slice;
-  const plate = r.plates[i];
-  viewer.setPreview(r.preview, plate.copies);
-  viewer.setModel(state.oriented.positions, plate.copies, true);
-  viewer.setModelColor(state.color);
+  const plate = r.plates[state.plateIndex];
+  viewer.setPreview(r.previews, plate.items);
   const range = $('layerRange');
-  range.max = r.layers - 1;
-  range.value = r.layers - 1;
+  range.max = plate.layers - 1;
+  range.value = plate.layers - 1;
   updateLayerView();
   renderLegend(plate);
 }
 
 function updateLayerView() {
-  const r = state.slice;
-  if (!r) return;
+  if (!state.slice) return;
   const top = +$('layerRange').value;
-  const single = $('singleLayer').checked;
-  viewer.setPreviewLayers(single ? top : 0, top);
-  $('layerLabel').innerHTML = `${top + 1}<br>${fmt(r.preview.zs[top], 2)}`;
+  viewer.setPreviewLayers($('singleLayer').checked ? top : 0, top);
+  $('layerLabel').innerHTML = `${top + 1}<br>${fmt(viewer.zs[top] ?? 0, 2)}`;
 }
 
 function renderLegend(plate) {
   const total = plate.seconds;
-  const rows = FEATURES.map((f) => ({ ...f, s: plate.byFeature[f.id] }))
-    .filter((f) => f.s > 0.5);
+  const rows = FEATURES.map((f) => ({ ...f, s: plate.byFeature[f.id] })).filter((f) => f.s > 0.5);
   const travel = plate.byFeature[TRAVEL_INDEX];
   const hidden = new Set();
   const legend = $('legend');
-  legend.innerHTML = `<div class="legend-title">Line type · time <span class="he" lang="he" dir="rtl">סוג קו · זמן</span></div>
+  legend.innerHTML = `<div class="legend-title">Line type · time ${he('סוג קו · זמן')}</div>
     <table>${rows.map((f) => `<tr>
-      <td><label><input type="checkbox" checked data-feature="${f.id}"><span class="sw" style="background:${f.color}"></span>${f.en}<span class="he" lang="he" dir="rtl">${f.he}</span></label></td>
+      <td><label><input type="checkbox" checked data-feature="${f.id}"><span class="sw" style="background:${f.color}"></span>${f.en}${he(f.he)}</label></td>
       <td class="num-col">${fmtDuration(f.s)}</td><td class="num-col">${Math.round((f.s / total) * 100)}%</td></tr>`).join('')}
-      <tr><td><label><span class="sw" style="background:#9aa3ab"></span>Travel<span class="he" lang="he" dir="rtl">תנועה</span></label></td>
+      <tr><td><label><span class="sw" style="background:#9aa3ab"></span>Travel${he('תנועה')}</label></td>
       <td class="num-col">${fmtDuration(travel)}</td><td class="num-col">${Math.round((travel / total) * 100)}%</td></tr>
     </table>`;
   legend.querySelectorAll('input[data-feature]').forEach((cb) => cb.addEventListener('change', () => {
@@ -418,11 +588,11 @@ function renderLegend(plate) {
 }
 
 function showTab(tab) {
-  const preview = tab === 'preview' && state.slice;
+  const preview = tab === 'preview' && !!state.slice;
   $('tabPrepare').classList.toggle('active', !preview);
-  $('tabPreview').classList.toggle('active', !!preview);
+  $('tabPreview').classList.toggle('active', preview);
   $('tabPrepare').setAttribute('aria-selected', String(!preview));
-  $('tabPreview').setAttribute('aria-selected', String(!!preview));
+  $('tabPreview').setAttribute('aria-selected', String(preview));
   viewer.setMode(preview ? 'preview' : 'model');
   $('layerSlider').hidden = !preview;
   $('legend').hidden = !preview;
@@ -432,18 +602,15 @@ function showTab(tab) {
 
 function updateOrderSummary() {
   const info = PROFILE_INFO[state.profile] || { en: state.profile };
-  const parts = [
-    state.file ? state.file.name : 'No model yet',
-    info.en,
-    `${state.color}`,
-    `${state.copies} ${state.copies > 1 ? 'copies' : 'copy'}`,
-  ];
+  const n = state.objects.length, c = totalCopies();
+  const parts = n ? [`${n} object${n > 1 ? 's' : ''}`, `${c} piece${c > 1 ? 's' : ''}`] : ['No models yet'];
+  parts.push(info.en, state.color);
   if (state.slice) parts.push(`${fmtDuration(state.slice.totalSeconds)} · ${CONFIG.currency}${fmtMoney(state.slice.cost)}`);
   $('orderSummary').textContent = parts.join(' · ');
 }
 
 function updateSubmitState() {
-  const ready = !!(state.source && state.fits && state.slice);
+  const ready = !!(canSlice() && state.slice);
   $('submitBtn').disabled = !ready;
   $('submitHint').hidden = ready;
 }
@@ -473,6 +640,19 @@ function validateForm() {
   return !firstBad;
 }
 
+/** One 3MF with every object once, as oriented, laid out plate by plate (for Bambu Studio). */
+async function buildOrientedPlate() {
+  const plates = arrangePlates(state.objects.map((o) => ({ key: o.key, size: o.oriented.size, count: 1 })), currentProcess().brim);
+  const placed = [];
+  plates.forEach((items, p) => {
+    for (const it of items) {
+      const o = objectByKey(it.key);
+      placed.push({ name: o.name, positions: o.oriented.positions, x: it.x + p * (PLATE.width + 20), y: it.y });
+    }
+  });
+  return build3MF(placed);
+}
+
 async function onSubmit(e) {
   e.preventDefault();
   const status = $('submitStatus');
@@ -480,12 +660,12 @@ async function onSubmit(e) {
   if (!state.slice) return;
   if (!validateForm()) {
     status.className = 'submit-status error';
-    status.innerHTML = 'Please fill in the highlighted fields. <span class="he" lang="he" dir="rtl">נא למלא את השדות המסומנים.</span>';
+    status.innerHTML = `Please fill in the highlighted fields. ${he('נא למלא את השדות המסומנים.')}`;
     return;
   }
   const r = state.slice;
   const info = PROFILE_INFO[r.processName] || { en: r.processName };
-  const s = state.oriented.size;
+  const fileName = (id) => state.files.find((f) => f.id === id)?.file.name || '';
   const details = {
     name: $('fName').value.trim(),
     idNumber: $('fId').value.trim(),
@@ -498,13 +678,19 @@ async function onSubmit(e) {
     website: $('fWebsite').value, // spam trap
   };
   const order = {
-    fileName: state.file.name,
-    fileSizeBytes: state.file.size,
-    triangles: state.source.length / 9,
+    files: state.files.map((f) => f.file.name),
+    objects: state.objects.map((o) => ({
+      name: o.name,
+      file: fileName(o.fileId),
+      copies: o.copies,
+      sizeMm: `${fmt(o.oriented.size.x, 1)} × ${fmt(o.oriented.size.y, 1)} × ${fmt(o.oriented.size.z, 1)}`,
+      unitScale: o.unitScale,
+      rotation: o.R.map((v) => Math.round(v * 1e6) / 1e6),
+    })),
     profile: r.processName,
     profileLabel: info.en,
     color: state.color,
-    copies: state.copies,
+    copies: totalCopies(),
     plates: r.plates.length,
     estimatedMinutes: r.totalMinutes,
     estimatedCost: r.cost,
@@ -512,20 +698,21 @@ async function onSubmit(e) {
     filamentGrams: Math.round(r.grams * 10) / 10,
     layers: r.layers,
     supports: r.hasSupport,
-    sizeMm: `${fmt(s.x, 1)} × ${fmt(s.y, 1)} × ${fmt(s.z, 1)}`,
-    unitScale: state.unitScale,
-    rotation: state.R.map((v) => Math.round(v * 1e6) / 1e6),
     secondsOnPage: Math.round((Date.now() - state.pageLoadedAt) / 1000),
   };
-  const base = state.file.name.replace(/\.[^.]+$/, '');
-  const files = [
-    { name: state.file.name, blob: state.file, kind: 'original' },
-    { name: `${base}_oriented.stl`, blob: new Blob([toBinarySTL(state.oriented.positions)], { type: 'model/stl' }), kind: 'oriented' },
-  ];
 
   const btn = $('submitBtn');
   btn.disabled = true;
   try {
+    status.textContent = 'Preparing files… · מכין קבצים…';
+    const plate3mf = await buildOrientedPlate();
+    if (plate3mf.size > CONFIG.maxFileMB * 1024 * 1024) {
+      throw new Error(`The models together are too detailed to upload (over ${CONFIG.maxFileMB} MB). Remove an object or export coarser meshes.`);
+    }
+    const files = [
+      ...state.files.map((f) => ({ name: f.file.name, blob: f.file, kind: 'original' })),
+      { name: 'oriented-plate.3mf', blob: plate3mf, kind: 'oriented' },
+    ];
     const id = await submitPrint({
       details, order, files,
       onStatus: (stage, i, n) => {
@@ -558,4 +745,5 @@ function fmtDuration(sec) {
 
 initProfiles();
 initControls();
+renderSelected();
 updateOrderSummary();

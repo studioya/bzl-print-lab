@@ -4,9 +4,12 @@ import { loadBackend } from './apps-script-mock.mjs';
 
 const details = { name: 'Dana Levi', idNumber: '012345678', email: 'dana@example.com', phone: '050-1234567',
   department: 'Industrial Design', course: 'Studio 2', deadline: '2026-11-01', notes: 'Please print soon', website: '' };
-const order = { fileName: 'part.stl', profile: 'BEZALEL FABLAB NORMAL', profileLabel: 'Normal', color: 'Black', copies: 3,
-  plates: 1, estimatedMinutes: 95, estimatedCost: 47.5, filamentGrams: 31.2, sizeMm: '40 × 20 × 10', supports: true,
-  rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1], secondsOnPage: 60 };
+const order = { files: ['part.stl', 'bracket.3mf'], profile: 'BEZALEL FABLAB NORMAL', profileLabel: 'Normal', color: 'Black', copies: 4,
+  objects: [
+    { name: 'part.stl', file: 'part.stl', copies: 3, sizeMm: '40 × 20 × 10', unitScale: 1, rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
+    { name: 'bracket.3mf – part 2', file: 'bracket.3mf', copies: 1, sizeMm: '12 × 8 × 5', unitScale: 10, rotation: [1, 0, 0, 0, 0, -1, 0, 1, 0] },
+  ],
+  plates: 1, estimatedMinutes: 95, estimatedCost: 47.5, filamentGrams: 31.2, supports: true, secondsOnPage: 60 };
 
 test('begin → file → finish stores files, logs the row and emails the student', () => {
   const b = loadBackend();
@@ -23,15 +26,20 @@ test('begin → file → finish stores files, logs the row and emails the studen
 
   const data = Buffer.from('solid x\nendsolid x\n').toString('base64');
   assert.equal(b.call({ action: 'file', id: r1.id, token: r1.token, name: 'part.stl', kind: 'original', data }).ok, true);
-  assert.equal(b.call({ action: 'file', id: r1.id, token: r1.token, name: 'part_oriented.stl', kind: 'oriented', data }).ok, true);
+  assert.equal(b.call({ action: 'file', id: r1.id, token: r1.token, name: 'bracket.3mf', kind: 'original', data }).ok, true);
+  assert.equal(b.call({ action: 'file', id: r1.id, token: r1.token, name: 'oriented-plate.3mf', kind: 'oriented', data }).ok, true);
   const r3 = b.call({ action: 'finish', id: r1.id, token: r1.token });
   assert.equal(r3.ok, true, JSON.stringify(r3));
   assert.equal(b.sheetRows[1][2], 'New');
-  assert.match(b.sheetRows[1][19], /ORIGINAL – part\.stl\nORIENTED – part_oriented\.stl/);
+  assert.match(b.sheetRows[1][19], /ORIGINAL – part\.stl\nORIGINAL – bracket\.3mf\nORIENTED – oriented-plate\.3mf/);
+  assert.equal(b.sheetRows[1][10], 4, 'pieces in total');
+  assert.equal(b.sheetRows[1][17], 'part.stl ×3 (40 × 20 × 10)\nbracket.3mf – part 2 ×1 (12 × 8 × 5)');
   assert.equal(b.mails.length, 1);
   assert.equal(b.mails[0][0], 'dana@example.com');
   const names = b.drive.files.filter((f) => f.folder === sub).map((f) => f.name);
-  assert.equal(names.length, 3); // details.txt + 2 models
+  assert.equal(names.length, 4); // details.txt + 2 originals + oriented 3MF
+  const txt = b.drive.files.find((f) => f.folder === sub && f.name.endsWith('details.txt')).content;
+  assert.match(txt, /bracket\.3mf – part 2 ×1 — 12 × 8 × 5 mm, from bracket\.3mf, scaled ×10/);
 });
 
 test('newest submission goes on top', () => {
@@ -45,7 +53,10 @@ test('newest submission goes on top', () => {
 test('rejects bad input, spam and wrong tokens', () => {
   const b = loadBackend();
   assert.equal(b.call({ action: 'begin', details: { ...details, email: 'nope' }, order }).ok, false);
-  assert.equal(b.call({ action: 'begin', details, order: { ...order, copies: 11 } }).ok, false);
+  assert.equal(b.call({ action: 'begin', details, order: { ...order, copies: 5 } }).ok, false, 'total must match objects');
+  const tooMany = { ...order, objects: [{ ...order.objects[0], copies: 11 }], copies: 11 };
+  assert.equal(b.call({ action: 'begin', details, order: tooMany }).ok, false, 'max 10 copies per object');
+  assert.equal(b.call({ action: 'begin', details, order: { ...order, objects: [], copies: 0 } }).ok, false);
   assert.equal(b.call({ action: 'begin', details: { ...details, website: 'spam' }, order }).ok, false);
   assert.equal(b.call({ action: 'begin', details, order: { ...order, secondsOnPage: 1 } }).ok, false);
   const r = b.call({ action: 'begin', details, order });
