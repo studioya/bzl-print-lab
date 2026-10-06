@@ -1,0 +1,12 @@
+{
+  "name": "bzl-print-lab",
+  "private": true,
+  "type": "module",
+  "description": "Student 3D print submission page with an in-browser slicer for the lab's Bambu Lab P1S profiles.",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "profiles": "node tools/resolve-profiles.mjs",
+    "serve": "python3 -m http.server 8000"
+  },
+  "engines": { "node": ">=18" }
+}

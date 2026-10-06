@@ -1,0 +1,22 @@
+{
+    "bundle_id": "406062301_BZL Bambu Lab P1S 0.4 nozzle_baseline_v6",
+    "bundle_type": "printer config bundle",
+    "filament_config": [
+        "filament/BEZALEL GENERIC PLA.json",
+        "filament/BEZALEL GENERIC PLA STRONG.json"
+    ],
+    "printer_config": [
+        "printer/BZL Bambu Lab P1S 0.4 nozzle.json"
+    ],
+    "printer_preset_name": "BZL Bambu Lab P1S 0.4 nozzle",
+    "process_config": [
+        "process/BEZALEL FABLAB DRAFT.json",
+        "process/BEZALEL FABLAB NORMAL.json",
+        "process/BEZALEL FABLAB FINE.json",
+        "process/BEZALEL FABLAB STRONG.json",
+        "process/BEZALEL FABLAB HYDRAULIC PRESS.json",
+        "process/BEZALEL FABLAB LOST PLA.json",
+        "process/BEZALEL FABLAB POUR MOLD.json"
+    ],
+    "version": "02.07.01.51"
+}

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BZL Print Lab</title>
+  <meta name="description" content="Upload a 3D model, slice it with the lab's Bambu Lab P1S profiles, get a time and cost estimate and submit it for printing.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2300ae42'/%3E%3Cpath d='M8 22h16M10 18h12M12 14h8M14 10h4' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1>BZL Print Lab <span class="he" lang="he" dir="rtl">מעבדת הדפסה</span></h1>
+        <p class="subtitle">3D print submission · Bambu Lab P1S
+          <span class="he" lang="he" dir="rtl">הגשת עבודות להדפסת תלת־ממד</span></p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="workspace" aria-label="Prepare your print">
+      <aside class="panel" id="setup">
+        <!-- 1. Model -->
+        <div class="step">
+          <h2><span class="num">1</span> Model <span class="he" lang="he" dir="rtl">מודל</span></h2>
+          <label class="dropzone" id="dropzone" tabindex="0">
+            <input type="file" id="fileInput" accept=".stl,.obj,.3mf" hidden>
+            <span class="dz-main">Drop an STL, OBJ or 3MF file here, or <u>browse</u></span>
+            <span class="he" lang="he" dir="rtl">גררו לכאן קובץ STL, OBJ או 3MF, או <u>בחרו קובץ</u></span>
+            <span class="dz-hint">Max <span data-max-mb>25</span> MB · one model per submission
+              <span class="he" lang="he" dir="rtl">עד <span data-max-mb>25</span> MB · מודל אחד בכל הגשה</span></span>
+          </label>
+          <div class="file-info" id="fileInfo" hidden>
+            <div class="file-name" id="fileName"></div>
+            <div class="file-meta" id="fileMeta"></div>
+            <div class="units-row">
+              <label for="units">File units <span class="he" lang="he" dir="rtl">יחידות הקובץ</span></label>
+              <select id="units">
+                <option value="1">mm</option>
+                <option value="10">cm</option>
+                <option value="25.4">inch</option>
+                <option value="1000">m</option>
+              </select>
+            </div>
+            <p class="hint warn" id="unitsHint" hidden></p>
+          </div>
+          <p class="error" id="loadError" role="alert" hidden></p>
+        </div>
+
+        <!-- 2. Print settings -->
+        <div class="step">
+          <h2><span class="num">2</span> Print settings <span class="he" lang="he" dir="rtl">הגדרות הדפסה</span></h2>
+          <fieldset class="profiles" id="profiles">
+            <legend>Printing profile <span class="he" lang="he" dir="rtl">פרופיל הדפסה</span></legend>
+          </fieldset>
+          <div class="row-2">
+            <fieldset class="colors">
+              <legend>Color <span class="he" lang="he" dir="rtl">צבע</span></legend>
+              <label class="swatch"><input type="radio" name="color" value="White" checked>
+                <span class="chip white"></span> White <span class="he" lang="he" dir="rtl">לבן</span></label>
+              <label class="swatch"><input type="radio" name="color" value="Black">
+                <span class="chip black"></span> Black <span class="he" lang="he" dir="rtl">שחור</span></label>
+            </fieldset>
+            <div class="copies">
+              <label for="copies">Copies <span class="he" lang="he" dir="rtl">עותקים</span></label>
+              <div class="stepper">
+                <button type="button" id="copiesDown" aria-label="Fewer copies">−</button>
+                <input type="number" id="copies" min="1" max="10" value="1" inputmode="numeric">
+                <button type="button" id="copiesUp" aria-label="More copies">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Orientation -->
+        <div class="step">
+          <h2><span class="num">3</span> Orientation <span class="he" lang="he" dir="rtl">כיוון ההדפסה</span></h2>
+          <p class="hint">Orientation changes supports, strength and time.
+            <span class="he" lang="he" dir="rtl">הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה.</span></p>
+          <div class="orient-tools">
+            <button type="button" class="tool wide" id="autoOrient" disabled>Auto-orient <span class="he" lang="he" dir="rtl">כיוון אוטומטי</span></button>
+            <button type="button" class="tool wide" id="layFlat" disabled>Lay on face <span class="he" lang="he" dir="rtl">הנחה על פאה</span></button>
+            <div class="rot-grid">
+              <span class="axis x">X</span>
+              <button type="button" class="tool" data-rot="x:-90" disabled>↺ 90°</button>
+              <button type="button" class="tool" data-rot="x:90" disabled>↻ 90°</button>
+              <span class="axis y">Y</span>
+              <button type="button" class="tool" data-rot="y:-90" disabled>↺ 90°</button>
+              <button type="button" class="tool" data-rot="y:90" disabled>↻ 90°</button>
+              <span class="axis z">Z</span>
+              <button type="button" class="tool" data-rot="z:-45" disabled>↺ 45°</button>
+              <button type="button" class="tool" data-rot="z:45" disabled>↻ 45°</button>
+            </div>
+            <button type="button" class="tool wide subtle" id="resetOrient" disabled>Reset <span class="he" lang="he" dir="rtl">איפוס</span></button>
+          </div>
+          <div class="fit" id="fitStatus" hidden></div>
+        </div>
+
+        <button type="button" class="primary big" id="sliceBtn" disabled>
+          Slice plate <span class="he" lang="he" dir="rtl">חיתוך (Slice)</span>
+        </button>
+        <div class="progress" id="sliceProgress" hidden>
+          <div class="bar"><span id="sliceBar"></span></div>
+          <div class="progress-label" id="sliceLabel"></div>
+        </div>
+      </aside>
+
+      <div class="stage">
+        <div class="stage-tabs" role="tablist">
+          <button type="button" role="tab" class="tab active" id="tabPrepare" aria-selected="true">Prepare <span class="he" lang="he" dir="rtl">הכנה</span></button>
+          <button type="button" role="tab" class="tab" id="tabPreview" aria-selected="false" disabled>Preview <span class="he" lang="he" dir="rtl">תצוגה מקדימה</span></button>
+          <div class="plate-tabs" id="plateTabs"></div>
+        </div>
+        <div class="viewer" id="viewer">
+          <div class="empty-state" id="emptyState">
+            <p>Your model will appear here on the build plate</p>
+            <p class="he" lang="he" dir="rtl">המודל שלכם יופיע כאן על משטח ההדפסה</p>
+          </div>
+          <div class="layer-slider" id="layerSlider" hidden>
+            <span class="layer-label" id="layerLabel"></span>
+            <input type="range" id="layerRange" min="0" max="0" value="0" orient="vertical" aria-label="Layer">
+            <label class="single-layer"><input type="checkbox" id="singleLayer"> 1</label>
+          </div>
+          <div class="legend" id="legend" hidden></div>
+          <div class="pick-hint" id="pickHint" hidden>Click a face of the model to place it on the plate · Esc to cancel
+            <span class="he" lang="he" dir="rtl">לחצו על פאה של המודל כדי להניח אותה על המשטח · Esc לביטול</span></div>
+        </div>
+      </div>
+
+      <aside class="panel estimate" id="estimate">
+        <h2>Estimate <span class="he" lang="he" dir="rtl">הערכה</span></h2>
+        <div class="estimate-empty" id="estimateEmpty">
+          <p>Slice the plate to see the print time and cost.</p>
+          <p class="he" lang="he" dir="rtl">בצעו חיתוך (Slice) כדי לראות את זמן ההדפסה והעלות.</p>
+        </div>
+        <div id="estimateBody" hidden>
+          <div class="kpi">
+            <div class="kpi-label">Print time <span class="he" lang="he" dir="rtl">זמן הדפסה</span></div>
+            <div class="kpi-value" id="estTime">–</div>
+          </div>
+          <div class="kpi accent">
+            <div class="kpi-label">Estimated cost <span class="he" lang="he" dir="rtl">עלות משוערת</span></div>
+            <div class="kpi-value" id="estCost">–</div>
+            <div class="kpi-sub" id="estRate"></div>
+          </div>
+          <dl class="facts" id="estFacts"></dl>
+          <p class="disclaimer">This is an estimate. The final time and cost are set by the lab after slicing in Bambu Studio.
+            <span class="he" lang="he" dir="rtl">זוהי הערכה בלבד. הזמן והעלות הסופיים ייקבעו על ידי המעבדה לאחר חיתוך ב־Bambu Studio.</span></p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="details" id="details" aria-labelledby="detailsTitle">
+      <h2 id="detailsTitle"><span class="num">4</span> Your details &amp; submission <span class="he" lang="he" dir="rtl">פרטים והגשה</span></h2>
+      <div class="notice">
+        <strong>Please note:</strong> prints can take up to several weeks, depending on the lab's queue.
+        <span class="he" lang="he" dir="rtl"><strong>שימו לב:</strong> הדפסות עשויות להימשך עד מספר שבועות, בהתאם לתור במעבדה.</span>
+      </div>
+      <form id="form" novalidate>
+        <div class="grid">
+          <div class="field">
+            <label for="fName">Full name <span class="he" lang="he" dir="rtl">שם מלא</span></label>
+            <input id="fName" name="name" required maxlength="80" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="fId">ID number <span class="he" lang="he" dir="rtl">מספר תעודת זהות</span></label>
+            <input id="fId" name="idNumber" required inputmode="numeric" maxlength="12" pattern="[0-9A-Za-z]{5,12}">
+          </div>
+          <div class="field">
+            <label for="fEmail">Email <span class="he" lang="he" dir="rtl">דוא״ל</span></label>
+            <input id="fEmail" name="email" type="email" required maxlength="120" autocomplete="email">
+          </div>
+          <div class="field">
+            <label for="fPhone">Phone <span class="he" lang="he" dir="rtl">טלפון</span></label>
+            <input id="fPhone" name="phone" type="tel" required maxlength="20" pattern="[+0-9][0-9 \-]{7,18}" autocomplete="tel">
+          </div>
+          <div class="field">
+            <label for="fDept">Department <span class="he" lang="he" dir="rtl">מחלקה</span></label>
+            <input id="fDept" name="department" required maxlength="80">
+          </div>
+          <div class="field">
+            <label for="fCourse">Course <span class="he" lang="he" dir="rtl">קורס</span></label>
+            <input id="fCourse" name="course" required maxlength="120">
+          </div>
+          <div class="field">
+            <label for="fDeadline">Needed by <span class="he" lang="he" dir="rtl">תאריך יעד</span></label>
+            <input id="fDeadline" name="deadline" type="date" required>
+          </div>
+          <div class="field summary-field">
+            <span class="label">Order <span class="he" lang="he" dir="rtl">הזמנה</span></span>
+            <div class="order-summary" id="orderSummary">–</div>
+          </div>
+          <div class="field full">
+            <label for="fNotes">Special notes <span class="he" lang="he" dir="rtl">הערות מיוחדות</span></label>
+            <textarea id="fNotes" name="notes" rows="3" maxlength="1500"></textarea>
+          </div>
+          <!-- Spam trap: real people never see or fill this. -->
+          <div class="hp" aria-hidden="true">
+            <label for="fWebsite">Website</label>
+            <input id="fWebsite" name="website" tabindex="-1" autocomplete="off">
+          </div>
+          <label class="consent full">
+            <input type="checkbox" id="fConsent" required>
+            <span>I confirm the details are correct and understand the time and cost shown are estimates. My details are used only by the lab to handle this print.
+              <span class="he" lang="he" dir="rtl">אני מאשר/ת שהפרטים נכונים ומבין/ה שהזמן והעלות המוצגים הם הערכה בלבד. הפרטים ישמשו את המעבדה לטיפול בהדפסה זו בלבד.</span></span>
+          </label>
+        </div>
+        <div class="submit-row">
+          <button type="submit" class="primary big" id="submitBtn" disabled>Submit for printing <span class="he" lang="he" dir="rtl">שליחה להדפסה</span></button>
+          <div class="submit-status" id="submitStatus" role="status"></div>
+        </div>
+        <p class="hint" id="submitHint">Upload and slice your model to enable submission.
+          <span class="he" lang="he" dir="rtl">העלו את המודל ובצעו חיתוך כדי לאפשר שליחה.</span></p>
+      </form>
+    </section>
+  </main>
+
+  <dialog id="doneDialog">
+    <div class="done">
+      <div class="done-icon" aria-hidden="true">✓</div>
+      <h2>Submitted! <span class="he" lang="he" dir="rtl">ההגשה התקבלה!</span></h2>
+      <p>Your submission number is <strong id="doneId"></strong>. A confirmation email is on its way.</p>
+      <p class="he" lang="he" dir="rtl">מספר ההגשה שלכם הוא <strong id="doneIdHe"></strong>. אישור יישלח אליכם בדוא״ל.</p>
+      <button type="button" class="primary" id="doneClose">Done <span class="he" lang="he" dir="rtl">סיום</span></button>
+    </div>
+  </dialog>
+
+  <footer>
+    <p>Bezalel FabLab · Bambu Lab P1S profiles · Estimates are approximate
+      <span class="he" lang="he" dir="rtl">ההערכות משוערות</span></p>
+  </footer>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
