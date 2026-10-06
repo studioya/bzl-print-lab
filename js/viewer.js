@@ -21,7 +21,7 @@ export class Viewer {
     this.camera.up.set(0, 0, 1);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
-    this.controls.addEventListener('change', () => this.requestRender());
+    this.controls.addEventListener('change', () => { this.fitDepthRange(); this.requestRender(); });
 
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f94, 1.6));
     const sun = new THREE.DirectionalLight(0xffffff, 1.6);
@@ -52,6 +52,21 @@ export class Viewer {
   }
 
   requestRender() { this.dirty = true; }
+
+  /**
+   * Keeps the near/far clipping planes tight around the scene, which keeps
+   * depth precision high enough to separate 0.1 mm layers when zoomed in.
+   */
+  fitDepthRange() {
+    const d = this.camera.position.distanceTo(this.controls.target);
+    const near = Math.min(Math.max(d * 0.02, 0.5), 50);
+    const far = d + 1200;
+    if (Math.abs(near - this.camera.near) > 1e-3 || Math.abs(far - this.camera.far) > 1e-3) {
+      this.camera.near = near;
+      this.camera.far = far;
+      this.camera.updateProjectionMatrix();
+    }
+  }
 
   resize() {
     const w = this.container.clientWidth, h = this.container.clientHeight;
@@ -115,6 +130,7 @@ export class Viewer {
     this.controls.target.copy(center);
     this.camera.position.copy(center).addScaledVector(dir, dist);
     this.controls.update();
+    this.fitDepthRange();
     this.requestRender();
   }
 
@@ -223,11 +239,14 @@ export class Viewer {
     // All objects share the profile's layer heights; use the tallest for z values.
     this.zs = Object.values(previews).reduce((a, p) => (p.zs.length > a.length ? p.zs : a), new Float32Array(0));
     const total = placements.reduce((s, pl) => s + (previews[pl.key]?.layerStart.at(-1) || 0), 0);
-    // Small previews use a full box per segment (Bambu-like tubes); big ones a
-    // flat top ribbon, which is 6× cheaper to draw on modest GPUs.
+    // Each segment is drawn as a short tube with a rounded (hexagonal)
+    // cross-section, like Bambu Studio. Neighbouring lines overlap slightly,
+    // as real extrusions do; with flat-topped boxes their tops would be
+    // coplanar and flicker between colours (z-fighting). Sloped sides make
+    // overlapping lines cross along a clean seam instead. Big previews use a
+    // cheaper ridge ("tent") shape with the same property.
     const lite = total > 600_000;
-    const box = lite ? new THREE.PlaneGeometry(1, 1) : new THREE.BoxGeometry(1, 1, 1);
-    box.translate(0.5, 0, lite ? 0 : -0.5);
+    const box = lite ? tentTemplate() : tubeTemplate();
 
     const colors = FEATURES.map((f) => new THREE.Color(f.color));
     this.previewUniforms = {
@@ -260,7 +279,10 @@ export class Viewer {
           float along = position.x * (len + w) - w * 0.5;
           vec2 xy = aSeg.xy + dir * along + nrm * position.y * w;
           float z = aZWH.x + position.z * h;
-          vec3 n = vec3(dir * normal.x + nrm * normal.y, normal.z);
+          // Template normals are for a unit-sized tube; correct them for the
+          // tube's real length/width/height (inverse-transpose of the scale).
+          vec3 ln = normalize(vec3(normal.x / (len + w), normal.y / w, normal.z / h));
+          vec3 n = vec3(dir * ln.x + nrm * ln.y, ln.z);
           float light = 0.45 + 0.55 * max(dot(n, uLightDir), 0.0) + 0.15 * max(n.z, 0.0);
           int ti = int(t);
           vec3 c = uColors[0];
@@ -321,4 +343,52 @@ export class Viewer {
     this.renderer.render(this.scene, this.camera);
     return this.renderer.domElement.toDataURL('image/jpeg', 0.8);
   }
+}
+
+// ---- extrusion templates ----
+// Unit segment: x along the segment (0..1, scaled to length + width in the
+// shader), y across (-0.5..0.5 × width), z from the layer top down (0..-1 × height).
+
+/** Hexagonal tube: ridge on top and bottom, vertical flanks at the sides. */
+function tubeTemplate() {
+  const profile = [[0, 0], [0.5, -0.3], [0.5, -0.7], [0, -1], [-0.5, -0.7], [-0.5, -0.3]];
+  const tris = [];
+  for (let i = 0; i < profile.length; i++) {
+    const [y1, z1] = profile[i], [y2, z2] = profile[(i + 1) % profile.length];
+    tris.push([[0, y1, z1], [1, y1, z1], [1, y2, z2]], [[0, y1, z1], [1, y2, z2], [0, y2, z2]]);
+  }
+  for (const x of [0, 1]) {
+    for (let i = 1; i + 1 < profile.length; i++) {
+      tris.push([[x, ...profile[0]], [x, ...profile[i]], [x, ...profile[i + 1]]]);
+    }
+  }
+  return buildTemplate(tris, [0.5, 0, -0.5]);
+}
+
+/** Cheaper ridge shape for very large previews: two sloped top faces. */
+function tentTemplate() {
+  const tris = [];
+  const L = [-0.5, -0.5], T = [0, 0], R = [0.5, -0.5];
+  for (const [a, b] of [[L, T], [T, R]]) {
+    tris.push([[0, ...a], [1, ...a], [1, ...b]], [[0, ...a], [1, ...b], [0, ...b]]);
+  }
+  return buildTemplate(tris, [0.5, 0, -1]);
+}
+
+/** Flat-shaded, outward-facing triangles → geometry with per-face normals. */
+function buildTemplate(tris, center) {
+  const pos = [], nor = [];
+  for (let [a, b, c] of tris) {
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const mid = [(a[0] + b[0] + c[0]) / 3 - center[0], (a[1] + b[1] + c[1]) / 3 - center[1], (a[2] + b[2] + c[2]) / 3 - center[2]];
+    if (n[0] * mid[0] + n[1] * mid[1] + n[2] * mid[2] < 0) { [b, c] = [c, b]; n = n.map((x) => -x); }
+    const l = Math.hypot(...n) || 1;
+    for (const p of [a, b, c]) { pos.push(...p); nor.push(n[0] / l, n[1] / l, n[2] / l); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  return g;
 }
