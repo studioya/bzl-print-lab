@@ -2,11 +2,13 @@
 
 A single web page where students:
 
-1. upload a model (**STL, OBJ or 3MF**, up to 25 MB),
-2. pick one of the lab's **Bambu Studio printing profiles**, a colour (black/white) and the number of copies (1–10),
-3. **orient** it on the plate (auto-orient, lay on face, rotate),
-4. **slice it in the browser** and get a Bambu-style toolpath preview plus a **time and cost estimate**,
-5. fill in their details and **submit**. The model lands in the lab's Google Drive folder
+1. add up to **5 model files** (**STL, OBJ or 3MF**, up to 25 MB each) to the plate,
+2. manage the **objects** on the plate like in Bambu Studio: **split** a file into its separate parts,
+   **remove** objects, and set **copies** (1–10) per object,
+3. pick one of the lab's **Bambu Studio printing profiles** and a colour (black/white),
+4. **orient** each object (auto-orient, lay on face, rotate),
+5. **slice the plate(s) in the browser** and get a Bambu-style toolpath preview plus a **time and cost estimate**,
+6. fill in their details and **submit**. The model lands in the lab's Google Drive folder
    `STUDENT 3D SUBMISSIONS`, the details go into a Google Sheet with a Status column, and the
    student gets a confirmation email.
 
@@ -66,15 +68,17 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 ### What the lab gets
 
 - **Drive:** `STUDENT 3D SUBMISSIONS/2026-10-06 14.32 · Student Name · P261006-7K3Q/` containing
-  - `ORIGINAL – <file>`: exactly what the student uploaded,
-  - `ORIENTED – <file>_oriented.stl`: the model rotated and placed the way the student oriented it
-    (open this one in Bambu Studio to print it as previewed),
+  - `ORIGINAL – <file>`: each file exactly as the student uploaded it (files whose objects were all
+    removed from the plate are not uploaded),
+  - `ORIENTED – oriented-plate.3mf`: every object on the plate once, rotated the way the student
+    oriented it (split parts as separate objects). Open it in Bambu Studio, set the copies listed in
+    the Sheet and press *Arrange*.
   - `<id> – details.txt`: all submission details.
 
   Folder names start with the date, so sorting the folder by **Name, Z→A** (or by *Last modified*)
   lists the newest submissions first. Drive remembers your sort choice.
 - **Sheet** (`STUDENT 3D SUBMISSIONS – Log`, in the same folder): one row per submission, newest at the
-  top. The **Status** column has a dropdown (New → In review → Queued → Printing → Ready for pickup →
+  top. The *Objects* column lists every object with its copies and size; *Pieces* is the total. The **Status** column has a dropdown (New → In review → Queued → Printing → Ready for pickup →
   Picked up, plus On hold / Rejected / Cancelled), colour-coded. There's also a free **Lab notes**
   column. A row stuck on *Uploading* means the student's upload didn't finish; you can delete it.
 - **Email:** the student gets a bilingual confirmation with their submission number and estimate.
@@ -100,7 +104,9 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 |---|---|---|
 | `appsScriptUrl` | `''` | Web app URL from step 2.7 |
 | `pricePerMinute` | `0.5` | ₪ per minute of estimated print time; warm-up/prepare time is not charged |
-| `maxCopies` | `10` | per submission |
+| `maxFiles` | `5` | model files per submission |
+| `maxObjects` | `50` | objects on the plate (after splitting) |
+| `maxCopies` | `10` | copies of each object |
 | `maxFileMB` | `25` | |
 | `timeCalibration` | `1.0` | multiplier for the time estimate (see below) |
 
@@ -155,9 +161,13 @@ preset values:
   classic jerk at corners, the filament's max volumetric speed (12 mm³/s for generic PLA), the
   20 mm/s first layer, overhang slowdowns, retractions, and the minimum layer time for cooling
   (8 s, down to 20 mm/s).
-- **Copies are sliced per plate:** copies are arranged on as few plates as needed and printed
-  together layer by layer, so travel between copies and shared layer time are counted as on the
-  real printer (e.g. 4 small parts take much less than 4× one part).
+- **Sliced per plate:** all objects and their copies are packed onto as few plates as needed and
+  printed together layer by layer, so travel between parts and shared layer time are counted as on
+  the real printer (e.g. 4 small parts take much less than 4× one part). Each object is sliced once
+  and reused for its copies.
+- **Split** works like Bambu Studio's *Split → To objects*: a file is separated into its
+  disconnected parts (by shared vertices). Note that a hollow model whose inner wall is a separate
+  shell will also come apart, as it does in Bambu Studio.
 
 Known simplifications: supports are an approximation of Bambu's trees, no ironing/fuzzy skin,
 no gap-fill between walls, and no arc fitting. The calibration factor absorbs the systematic part

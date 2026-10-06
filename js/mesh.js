@@ -160,3 +160,43 @@ export function toBinarySTL(positions, header = 'BZL Print Lab oriented model') 
   }
   return buf;
 }
+
+/**
+ * Splits a triangle soup into its connected parts (triangles sharing a
+ * vertex), like Bambu Studio's "Split to objects". Returns one Float32Array
+ * per part, largest first.
+ */
+export function splitComponents(src) {
+  const triCount = src.length / 9;
+  const parent = new Int32Array(triCount);
+  for (let i = 0; i < triCount; i++) parent[i] = i;
+  const find = (a) => {
+    while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; }
+    return a;
+  };
+  const seen = new Map();
+  for (let t = 0; t < triCount; t++) {
+    for (let k = 0; k < 3; k++) {
+      const o = t * 9 + k * 3;
+      const key = `${src[o]},${src[o + 1]},${src[o + 2]}`;
+      const other = seen.get(key);
+      if (other === undefined) seen.set(key, t);
+      else {
+        const a = find(t), b = find(other);
+        if (a !== b) parent[a] = b;
+      }
+    }
+  }
+  const groups = new Map();
+  for (let t = 0; t < triCount; t++) {
+    const r = find(t);
+    const g = groups.get(r);
+    if (g) g.push(t); else groups.set(r, [t]);
+  }
+  const parts = [...groups.values()].sort((a, b) => b.length - a.length).map((tris) => {
+    const out = new Float32Array(tris.length * 9);
+    tris.forEach((t, i) => out.set(src.subarray(t * 9, t * 9 + 9), i * 9));
+    return out;
+  });
+  return parts;
+}

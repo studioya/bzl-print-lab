@@ -8,9 +8,10 @@ import { sliceObject } from '../js/slicer/pipeline.js';
 import { estimatePlate } from '../js/slicer/estimate.js';
 import { buildPreview, FLOATS_PER_SEGMENT } from '../js/slicer/preview.js';
 import { area } from '../js/slicer/clip.js';
-import { arrangeCopies, fitsPlate, PLATE } from '../js/arrange.js';
+import { arrangePlates, fitsPlate, PLATE } from '../js/arrange.js';
 import { parseSTL, parseOBJ, parse3MF } from '../js/loaders.js';
-import { toBinarySTL, orientMesh, alignRotation, autoOrient } from '../js/mesh.js';
+import { toBinarySTL, orientMesh, alignRotation, autoOrient, splitComponents } from '../js/mesh.js';
+import { build3MF } from '../js/export3mf.js';
 import * as fx from './fixtures.mjs';
 
 const NORMAL = PROCESSES.find((p) => p.name === 'BEZALEL FABLAB NORMAL');
@@ -64,7 +65,7 @@ test('a ring slices to an outer contour with a hole', () => {
 test('cube: no supports, plausible time and filament', () => {
   const obj = sliceObject(fx.f32(fx.box(20, 20, 20, -10, -10, 0)), NORMAL);
   assert.equal(obj.hasSupport, false);
-  const est = estimatePlate(obj, [[0, 0]], NORMAL, PLA, PRINTER);
+  const est = estimatePlate([{ obj, x: 0, y: 0 }], NORMAL, PLA, PRINTER);
   assert.ok(est.seconds > 10 * 60 && est.seconds < 25 * 60, `time ${est.seconds / 60} min`);
   assert.ok(est.grams > 2 && est.grams < 5, `grams ${est.grams}`);
 });
@@ -78,8 +79,8 @@ test('cantilever needs support; supports are only built from the plate', () => {
 
 test('copies on one plate are cheaper per copy than separate prints (shared layer time)', () => {
   const obj = sliceObject(fx.f32(fx.box(15, 15, 10, -7.5, -7.5, 0)), NORMAL);
-  const one = estimatePlate(obj, [[0, 0]], NORMAL, PLA, PRINTER);
-  const four = estimatePlate(obj, [[0, 0], [30, 0], [60, 0], [90, 0]], NORMAL, PLA, PRINTER);
+  const one = estimatePlate([{ obj, x: 0, y: 0 }], NORMAL, PLA, PRINTER);
+  const four = estimatePlate([0, 30, 60, 90].map((x) => ({ obj, x, y: 0 })), NORMAL, PLA, PRINTER);
   assert.ok(four.seconds < one.seconds * 4 * 0.9, `${four.seconds} vs 4×${one.seconds}`);
   assert.ok(four.seconds > one.seconds * 1.5);
   assert.ok(Math.abs(four.grams - one.grams * 4) < 0.01);
@@ -89,7 +90,7 @@ test('finer profiles take longer', () => {
   const pos = fx.f32(fx.cylinder(15, 20));
   const t = (name) => {
     const p = PROCESSES.find((x) => x.name === name);
-    return estimatePlate(sliceObject(pos, p), [[0, 0]], p, PLA, PRINTER).seconds;
+    return estimatePlate([{ obj: sliceObject(pos, p), x: 0, y: 0 }], p, PLA, PRINTER).seconds;
   };
   assert.ok(t('BEZALEL FABLAB FINE') > t('BEZALEL FABLAB NORMAL'));
   assert.ok(t('BEZALEL FABLAB NORMAL') > t('BEZALEL FABLAB DRAFT'));
@@ -103,20 +104,70 @@ test('preview buffer has one entry per segment and per-layer offsets', () => {
   for (let i = 1; i < pv.layerStart.length; i++) assert.ok(pv.layerStart[i] >= pv.layerStart[i - 1]);
 });
 
-test('fit check and copy arrangement', () => {
+test('fit check and multi-object arrangement', () => {
   assert.equal(fitsPlate({ x: 240, y: 100, z: 250 }), true);
   assert.equal(fitsPlate({ x: 241, y: 100, z: 10 }), false);
   assert.equal(fitsPlate({ x: 10, y: 10, z: 251 }), false);
-  assert.equal(arrangeCopies({ x: 241, y: 10 }, 1, NORMAL.brim), null);
-  const a = arrangeCopies({ x: 100, y: 100 }, 10, NORMAL.brim);
-  assert.equal(a.perPlate, 4);
-  assert.equal(a.plates.length, 3);
-  assert.deepEqual(a.plates.map((p) => p.length), [4, 4, 2]);
-  for (const plate of a.plates) for (const [x, y] of plate) {
-    assert.ok(x - 50 >= -1e-6 && x + 50 <= PLATE.width + 1e-6 && y - 50 >= -1e-6 && y + 50 <= PLATE.depth + 1e-6);
+  const plates = arrangePlates([{ key: 'a', size: { x: 100, y: 100 }, count: 10 }], NORMAL.brim);
+  assert.deepEqual(plates.map((p) => p.length), [4, 4, 2]);
+  const big = arrangePlates([{ key: 'a', size: { x: 230, y: 230 }, count: 2 }], NORMAL.brim);
+  assert.equal(big.length, 2);
+  // Mixed sizes: every piece placed once, inside the plate, without overlaps (incl. brim gap).
+  const items = [
+    { key: 'big', size: { x: 150, y: 90 }, count: 2 },
+    { key: 'mid', size: { x: 60, y: 40 }, count: 5 },
+    { key: 'small', size: { x: 15, y: 15 }, count: 10 },
+  ];
+  const mixed = arrangePlates(items, NORMAL.brim);
+  const all = mixed.flat();
+  assert.equal(all.length, 17);
+  const size = Object.fromEntries(items.map((i) => [i.key, i.size]));
+  for (const plate of mixed) {
+    for (const q of plate) {
+      const s = size[q.key];
+      assert.ok(q.x - s.x / 2 >= -1e-6 && q.x + s.x / 2 <= PLATE.width + 1e-6 && q.y - s.y / 2 >= -1e-6 && q.y + s.y / 2 <= PLATE.depth + 1e-6, 'inside plate');
+    }
+    for (let i = 0; i < plate.length; i++) for (let j = i + 1; j < plate.length; j++) {
+      const a = plate[i], b = plate[j], sa = size[a.key], sb = size[b.key];
+      const apart = Math.abs(a.x - b.x) >= (sa.x + sb.x) / 2 + 10 || Math.abs(a.y - b.y) >= (sa.y + sb.y) / 2 + 10;
+      assert.ok(apart, `${a.key} and ${b.key} overlap`);
+    }
   }
-  const single = arrangeCopies({ x: 230, y: 230 }, 2, NORMAL.brim);
-  assert.equal(single.plates.length, 2);
+});
+
+test('a plate with different objects is estimated together', () => {
+  const cube = sliceObject(fx.f32(fx.box(15, 15, 10, -7.5, -7.5, 0)), NORMAL);
+  const tall = sliceObject(fx.f32(fx.cylinder(6, 30)), NORMAL);
+  const a = estimatePlate([{ obj: cube, x: 0, y: 0 }], NORMAL, PLA, PRINTER);
+  const b = estimatePlate([{ obj: tall, x: 0, y: 0 }], NORMAL, PLA, PRINTER);
+  const both = estimatePlate([{ obj: cube, x: 0, y: 0 }, { obj: tall, x: 40, y: 0 }], NORMAL, PLA, PRINTER);
+  assert.equal(both.layers, tall.layers.length);
+  assert.ok(both.seconds < a.seconds + b.seconds, 'shared layers print faster than two separate plates');
+  assert.ok(both.seconds > Math.max(a.seconds, b.seconds));
+  assert.ok(Math.abs(both.grams - (a.grams + b.grams)) < 0.01);
+});
+
+test('split separates disconnected parts', () => {
+  const two = fx.f32([...fx.box(10, 10, 10), ...fx.box(5, 5, 5, 20, 0, 0)]);
+  const parts = splitComponents(two);
+  assert.equal(parts.length, 2);
+  assert.equal(parts[0].length, 12 * 9);
+  assert.equal(parts[1].length, 12 * 9);
+  assert.equal(splitComponents(fx.f32(fx.sphere(5))).length, 1);
+});
+
+test('oriented plate 3MF round-trips through the 3MF loader', async () => {
+  const cube = fx.f32(fx.box(10, 10, 10, -5, -5, 0));
+  const blob = await build3MF([
+    { name: 'a & <b>', positions: cube, x: 50, y: 60 },
+    { name: 'c', positions: cube, x: 120, y: 60 },
+  ]);
+  const pos = await parse3MF(await blob.arrayBuffer());
+  assert.equal(pos.length, cube.length * 2);
+  let minX = Infinity, maxX = -Infinity;
+  for (let i = 0; i < pos.length; i += 3) { minX = Math.min(minX, pos[i]); maxX = Math.max(maxX, pos[i]); }
+  assert.equal(minX, 45);
+  assert.equal(maxX, 125);
 });
 
 test('STL binary and ASCII parse to the same triangles', () => {
