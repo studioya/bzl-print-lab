@@ -123,7 +123,16 @@
         <div class="stage-tabs" role="tablist">
           <button type="button" role="tab" class="tab active" id="tabPrepare" aria-selected="true">Prepare <span class="he" lang="he" dir="rtl">הכנה</span></button>
           <button type="button" role="tab" class="tab" id="tabPreview" aria-selected="false" disabled>Preview <span class="he" lang="he" dir="rtl">תצוגה מקדימה</span></button>
+        </div>
+        <div class="plate-bar" id="plateBar" hidden>
           <div class="plate-tabs" id="plateTabs"></div>
+          <button type="button" class="plate-add" id="addPlate" title="Add an empty plate · הוספת משטח">+ Plate <span class="he" lang="he" dir="rtl">משטח</span></button>
+          <div class="plate-tools">
+            <select id="moveTo" aria-label="Move the selected piece to another plate"></select>
+            <button type="button" class="icon-btn" id="arrangePlate" title="Arrange the pieces on this plate automatically · סידור אוטומטי של המשטח הזה">Arrange <span class="he" lang="he" dir="rtl">סידור</span></button>
+            <button type="button" class="icon-btn" id="arrangeAll" title="Re-pack every piece onto as few plates as possible · סידור כל החלקים על כמה שפחות משטחים">Arrange all <span class="he" lang="he" dir="rtl">סידור הכול</span></button>
+          </div>
+          <div class="plate-hint">Drag a piece to move it. <span class="he" lang="he" dir="rtl">גררו חלק כדי להזיז אותו.</span></div>
         </div>
         <div class="viewer" id="viewer">
           <div class="viewer-error" id="viewerError" hidden>

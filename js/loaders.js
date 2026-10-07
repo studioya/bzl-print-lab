@@ -223,7 +223,7 @@ export function parseModelXml(xml) {
 
 // ---------------- minimal ZIP reader ----------------
 
-export async function readZip(buffer) {
+export async function readZip(buffer, wanted = /\.(model|rels)$/i) {
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
   let eocd = -1;
@@ -246,7 +246,7 @@ export async function readZip(buffer) {
     const name = dec.decode(bytes.subarray(p + 46, p + 46 + nameLen));
     p += 46 + nameLen + extraLen + commentLen;
     if (name.endsWith('/')) continue;
-    if (!/\.(model|rels)$/i.test(name)) continue; // only geometry is needed
+    if (!wanted.test(name)) continue; // by default only geometry is needed
     const lNameLen = view.getUint16(local + 26, true);
     const lExtraLen = view.getUint16(local + 28, true);
     const start = local + 30 + lNameLen + lExtraLen;
