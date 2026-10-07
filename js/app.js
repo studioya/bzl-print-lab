@@ -92,22 +92,29 @@ function profileLabel(name) { return PROCESSES.find((p) => p.name === name)?.lab
 // ---------------------------------------------------------------- setup UI
 
 function initProfiles() {
-  const fs = $('profiles');
+  const grid = $('profileGrid');
   for (const p of PROCESSES) {
-    const info = PROFILE_INFO[p.name] || { he: '', descEn: '', descHe: '' };
+    const info = PROFILE_INFO[p.name] || {};
     const label = document.createElement('label');
     label.className = 'profile';
-    const spec = `${p.layerHeight} mm · ${Math.round(p.sparseInfillDensity * 100)}% · ${p.wallLoops} walls`;
     label.innerHTML = `
       <input type="radio" name="profile" value="${p.name}">
-      <span class="p-name">${p.label}${he(info.he || '')}</span>
-      <span class="p-spec">${spec}</span>
-      <span class="p-desc">${info.descEn}${he(info.descHe)}</span>`;
+      <span class="p-name">${p.label}${info.he ? he(info.he) : ''}</span>`;
     const input = label.querySelector('input');
     input.checked = p.name === state.profile;
-    input.addEventListener('change', () => { state.profile = p.name; refresh(); });
-    fs.appendChild(label);
+    input.addEventListener('change', () => { state.profile = p.name; renderProfileDetail(); refresh(); });
+    grid.appendChild(label);
   }
+  renderProfileDetail();
+}
+
+/** Specs and description of the selected profile, under the profile buttons. */
+function renderProfileDetail() {
+  const p = currentProcess();
+  const info = PROFILE_INFO[p.name] || {};
+  const spec = `${p.layerHeight} mm layers · ${Math.round(p.sparseInfillDensity * 100)}% infill · ${p.wallLoops} walls`;
+  $('profileDetail').innerHTML = `<div class="p-spec">${spec}</div>
+    ${info.descEn ? `<div class="p-desc">${info.descEn}${he(info.descHe || '')}</div>` : ''}`;
 }
 
 function initControls() {
@@ -366,6 +373,7 @@ function refresh({ reframe = false } = {}) {
     : [];
   state.plateIndex = Math.min(state.plateIndex, Math.max(0, state.plates.length - 1));
   $('emptyState').hidden = state.objects.length > 0 || !!state.noViewer;
+  $('dropzone').classList.toggle('compact', state.objects.length > 0);
   invalidateSlice();
   renderObjectList();
   renderSelected();
@@ -618,7 +626,7 @@ function renderEstimate() {
   if (r.plates.length > 1) {
     r.plates.forEach((p, i) => rows.push([`Plate ${i + 1}`, `משטח ${i + 1}`, `${fmtDuration(p.seconds)} · ${p.items.length} pcs`]));
   }
-  $('estFacts').innerHTML = rows.map(([en, h, v]) => `<dt>${en}${he(h)}</dt><dd>${v}</dd>`).join('');
+  $('estFacts').innerHTML = rows.map(([en, h, v]) => `<div class="fact"><span class="fact-label">${en}${he(h)}</span><b>${v}</b></div>`).join('');
 }
 
 function showPlatePreview() {

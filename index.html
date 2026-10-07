@@ -25,7 +25,7 @@
 
   <main>
     <section class="workspace" aria-label="Prepare your print">
-      <aside class="panel" id="setup">
+      <aside class="panel col-a" id="setup">
         <!-- 1. Models -->
         <div class="step">
           <h2><span class="num">1</span> Models <span class="he" lang="he" dir="rtl">מודלים</span></h2>
@@ -60,6 +60,8 @@
           <h2><span class="num">2</span> Print settings <span class="he" lang="he" dir="rtl">הגדרות הדפסה</span></h2>
           <fieldset class="profiles" id="profiles">
             <legend>Printing profile <span class="he" lang="he" dir="rtl">פרופיל הדפסה</span></legend>
+            <div class="profile-grid" id="profileGrid"></div>
+            <div class="profile-detail" id="profileDetail" aria-live="polite"></div>
           </fieldset>
           <fieldset class="colors">
             <legend>Color <span class="he" lang="he" dir="rtl">צבע</span></legend>
@@ -69,42 +71,38 @@
               <span class="chip black"></span> Black <span class="he" lang="he" dir="rtl">שחור</span></label>
           </fieldset>
         </div>
+      </aside>
 
+      <aside class="panel col-b" id="setupB">
         <!-- 3. Orientation -->
         <div class="step">
           <h2><span class="num">3</span> Orientation &amp; size <span class="he" lang="he" dir="rtl">כיוון וגודל</span></h2>
           <p class="orient-target" id="orientTarget">Select an object to orient it.
             <span class="he" lang="he" dir="rtl">בחרו אובייקט כדי לכוון אותו.</span></p>
-          <p class="hint">Orientation changes supports, strength and time.
-            <span class="he" lang="he" dir="rtl">הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה.</span></p>
-          <div class="orient-tools">
-            <button type="button" class="tool wide" id="autoOrient" disabled>Auto-orient <span class="he" lang="he" dir="rtl">כיוון אוטומטי</span></button>
-            <button type="button" class="tool wide" id="layFlat" disabled>Lay on face <span class="he" lang="he" dir="rtl">הנחה על פאה</span></button>
-            <div class="rot-grid">
-              <span class="axis x">X</span>
-              <button type="button" class="tool" data-rot="x:-90" disabled>↺ 90°</button>
-              <button type="button" class="tool" data-rot="x:90" disabled>↻ 90°</button>
-              <span class="axis y">Y</span>
-              <button type="button" class="tool" data-rot="y:-90" disabled>↺ 90°</button>
-              <button type="button" class="tool" data-rot="y:90" disabled>↻ 90°</button>
-              <span class="axis z">Z</span>
-              <button type="button" class="tool" data-rot="z:-45" disabled>↺ 45°</button>
-              <button type="button" class="tool" data-rot="z:45" disabled>↻ 45°</button>
+          <div class="orient-tools" title="Orientation changes supports, strength and time · הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה">
+            <div class="tool-row">
+              <button type="button" class="tool wide" id="autoOrient" disabled>Auto-orient <span class="he" lang="he" dir="rtl">כיוון אוטומטי</span></button>
+              <button type="button" class="tool wide" id="layFlat" disabled>Lay on face <span class="he" lang="he" dir="rtl">הנחה על פאה</span></button>
+              <button type="button" class="tool wide subtle" id="resetOrient" disabled>Reset <span class="he" lang="he" dir="rtl">איפוס</span></button>
             </div>
-            <button type="button" class="tool wide subtle" id="resetOrient" disabled>Reset <span class="he" lang="he" dir="rtl">איפוס</span></button>
+            <div class="rot-grid" role="group" aria-label="Rotate">
+              <span class="axis x">X</span><span class="axis y">Y</span><span class="axis z">Z</span>
+              <button type="button" class="tool" data-rot="x:-90" disabled title="Rotate −90° around X">↺ 90°</button>
+              <button type="button" class="tool" data-rot="y:-90" disabled title="Rotate −90° around Y">↺ 90°</button>
+              <button type="button" class="tool" data-rot="z:-45" disabled title="Rotate −45° around Z">↺ 45°</button>
+              <button type="button" class="tool" data-rot="x:90" disabled title="Rotate 90° around X">↻ 90°</button>
+              <button type="button" class="tool" data-rot="y:90" disabled title="Rotate 90° around Y">↻ 90°</button>
+              <button type="button" class="tool" data-rot="z:45" disabled title="Rotate 45° around Z">↻ 45°</button>
+            </div>
           </div>
-          <div class="size-tools" id="sizeTools" hidden>
-            <div class="scale-row">
-              <label for="scalePct">Scale <span class="he" lang="he" dir="rtl">קנה מידה</span></label>
-              <div class="unit-input"><input type="number" id="scalePct" min="1" max="1000" step="1" inputmode="decimal"><span>%</span></div>
-            </div>
-            <div class="size-grid" role="group" aria-label="Size in millimetres">
-              <span class="size-label">Size (mm) <span class="he" lang="he" dir="rtl">מידות (מ״מ)</span></span>
+          <div class="size-tools" id="sizeTools" hidden title="Scaling keeps the proportions · שינוי הגודל שומר על הפרופורציות">
+            <div class="size-grid" role="group" aria-label="Scale and size in millimetres">
+              <span class="size-label">Scale % · size mm <span class="he" lang="he" dir="rtl">קנה מידה · מידות</span></span>
+              <label class="axis-input"><span class="axis">%</span><input type="number" id="scalePct" min="1" max="1000" step="1" inputmode="decimal" aria-label="Scale percent"></label>
               <label class="axis-input"><span class="axis x">X</span><input type="number" id="sizeX" min="0.1" step="0.1" inputmode="decimal"></label>
               <label class="axis-input"><span class="axis y">Y</span><input type="number" id="sizeY" min="0.1" step="0.1" inputmode="decimal"></label>
               <label class="axis-input"><span class="axis z">Z</span><input type="number" id="sizeZ" min="0.1" step="0.1" inputmode="decimal"></label>
             </div>
-            <p class="hint">Scaling keeps the proportions. <span class="he" lang="he" dir="rtl">שינוי הגודל שומר על הפרופורציות.</span></p>
             <button type="button" class="tool wide" id="fitToPlate" hidden>Scale to fit the plate <span class="he" lang="he" dir="rtl">הקטנה כך שייכנס למשטח</span></button>
           </div>
           <div class="fit" id="fitStatus" hidden></div>
@@ -147,29 +145,27 @@
           <div class="pick-hint" id="pickHint" hidden>Click a face of the model to place it on the plate · Esc to cancel
             <span class="he" lang="he" dir="rtl">לחצו על פאה של המודל כדי להניח אותה על המשטח · Esc לביטול</span></div>
         </div>
+        <div class="estimate" id="estimate" aria-live="polite">
+          <div class="estimate-empty" id="estimateEmpty">
+            Slice the plate to see the print time and cost.
+            <span class="he" lang="he" dir="rtl">בצעו חיתוך (Slice) כדי לראות את זמן ההדפסה והעלות.</span>
+          </div>
+          <div id="estimateBody" hidden>
+            <div class="kpi">
+              <div class="kpi-label">Print time <span class="he" lang="he" dir="rtl">זמן הדפסה</span></div>
+              <div class="kpi-value" id="estTime">–</div>
+            </div>
+            <div class="kpi accent">
+              <div class="kpi-label">Estimated cost <span class="he" lang="he" dir="rtl">עלות משוערת</span></div>
+              <div class="kpi-value" id="estCost">–</div>
+              <div class="kpi-sub" id="estRate"></div>
+            </div>
+            <div class="facts" id="estFacts"></div>
+            <p class="disclaimer">Estimate only: the lab sets the final time and cost after slicing in Bambu Studio.
+              <span class="he" lang="he" dir="rtl">הערכה בלבד: המעבדה תקבע את הזמן והעלות הסופיים לאחר חיתוך ב־Bambu Studio.</span></p>
+          </div>
+        </div>
       </div>
-
-      <aside class="panel estimate" id="estimate">
-        <h2>Estimate <span class="he" lang="he" dir="rtl">הערכה</span></h2>
-        <div class="estimate-empty" id="estimateEmpty">
-          <p>Slice the plate to see the print time and cost.</p>
-          <p class="he" lang="he" dir="rtl">בצעו חיתוך (Slice) כדי לראות את זמן ההדפסה והעלות.</p>
-        </div>
-        <div id="estimateBody" hidden>
-          <div class="kpi">
-            <div class="kpi-label">Print time <span class="he" lang="he" dir="rtl">זמן הדפסה</span></div>
-            <div class="kpi-value" id="estTime">–</div>
-          </div>
-          <div class="kpi accent">
-            <div class="kpi-label">Estimated cost <span class="he" lang="he" dir="rtl">עלות משוערת</span></div>
-            <div class="kpi-value" id="estCost">–</div>
-            <div class="kpi-sub" id="estRate"></div>
-          </div>
-          <dl class="facts" id="estFacts"></dl>
-          <p class="disclaimer">This is an estimate. The final time and cost are set by the lab after slicing in Bambu Studio.
-            <span class="he" lang="he" dir="rtl">זוהי הערכה בלבד. הזמן והעלות הסופיים ייקבעו על ידי המעבדה לאחר חיתוך ב־Bambu Studio.</span></p>
-        </div>
-      </aside>
     </section>
 
     <section class="details" id="details" aria-labelledby="detailsTitle">
