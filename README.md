@@ -6,7 +6,8 @@ A single web page where students:
 2. manage the **objects** on the plate like in Bambu Studio: **split** a file into its separate parts,
    **remove** objects, and set **copies** (1–10) per object,
 3. pick one of the lab's **Bambu Studio printing profiles** and a colour (black/white),
-4. **orient** each object (auto-orient, lay on face, rotate),
+4. **orient** each object (auto-orient, lay on face, rotate) and **resize** it (scale %, size in mm,
+   or *Scale to fit the plate* for models that are too big),
 5. **slice the plate(s) in the browser** and get a Bambu-style toolpath preview plus a **time and cost estimate**,
 6. fill in their details and **submit**. The model lands in the lab's Google Drive folder
    `STUDENT 3D SUBMISSIONS`, the details go into a Google Sheet with a Status column, and the
@@ -134,7 +135,9 @@ will differ somewhat. To calibrate:
    [BambuStudio/resources/profiles/BBL](https://github.com/bambulab/BambuStudio/tree/master/resources/profiles/BBL)
    into `profiles/bambu-base/`.
 4. Run `node tools/resolve-profiles.mjs`. This regenerates `js/profiles-data.js`.
-5. Add a name and short EN/HE description for any new profile in `js/profile-info.js`.
+5. Students see each preset's own name with the shared suffix removed
+   ("Normal - Bezalel Modelling Center" → "Normal"). Add a Hebrew name and a short EN/HE
+   description for any new preset in `js/profile-info.js`.
 
 The printable area comes straight from the printer preset (`printable_area` 18–258 mm, i.e. a
 240 × 240 mm area, 250 mm high). Models that don't fit (after orientation) can't be submitted.
