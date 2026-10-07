@@ -93,28 +93,24 @@ function profileLabel(name) { return PROCESSES.find((p) => p.name === name)?.lab
 
 function initProfiles() {
   const grid = $('profileGrid');
-  for (const p of PROCESSES) {
+  PROCESSES.forEach((p, i) => {
     const info = PROFILE_INFO[p.name] || {};
+    const spec = `${p.layerHeight} mm layers · ${Math.round(p.sparseInfillDensity * 100)}% infill · ${p.wallLoops} walls`;
     const label = document.createElement('label');
     label.className = 'profile';
+    // Description in a tooltip: shown on hover, and on focus/tap for keyboards and touch screens.
     label.innerHTML = `
-      <input type="radio" name="profile" value="${p.name}">
-      <span class="p-name">${p.label}${info.he ? he(info.he) : ''}</span>`;
+      <input type="radio" name="profile" value="${p.name}" aria-describedby="profileTip${i}">
+      <span class="p-name">${p.label}${info.he ? he(info.he) : ''}</span>
+      <span class="p-tip" role="tooltip" id="profileTip${i}">
+        <span class="p-spec">${spec}</span>
+        ${info.descEn ? `<span class="p-desc">${info.descEn}${he(info.descHe || '')}</span>` : ''}
+      </span>`;
     const input = label.querySelector('input');
     input.checked = p.name === state.profile;
-    input.addEventListener('change', () => { state.profile = p.name; renderProfileDetail(); refresh(); });
+    input.addEventListener('change', () => { state.profile = p.name; refresh(); });
     grid.appendChild(label);
-  }
-  renderProfileDetail();
-}
-
-/** Specs and description of the selected profile, under the profile buttons. */
-function renderProfileDetail() {
-  const p = currentProcess();
-  const info = PROFILE_INFO[p.name] || {};
-  const spec = `${p.layerHeight} mm layers · ${Math.round(p.sparseInfillDensity * 100)}% infill · ${p.wallLoops} walls`;
-  $('profileDetail').innerHTML = `<div class="p-spec">${spec}</div>
-    ${info.descEn ? `<div class="p-desc">${info.descEn}${he(info.descHe || '')}</div>` : ''}`;
+  });
 }
 
 function initControls() {
@@ -653,7 +649,7 @@ function renderLegend(plate) {
   const travel = plate.byFeature[TRAVEL_INDEX];
   const hidden = new Set();
   const legend = $('legend');
-  legend.innerHTML = `<div class="legend-title">Line type · time ${he('סוג קו · זמן')}</div>
+  legend.innerHTML = `<button type="button" class="legend-title" aria-expanded="true">Line type · time ${he('סוג קו · זמן')}</button>
     <table>${rows.map((f) => `<tr>
       <td><label><input type="checkbox" checked data-feature="${f.id}"><span class="sw" style="background:${f.color}"></span>${f.en}${he(f.he)}</label></td>
       <td class="num-col">${fmtDuration(f.s)}</td><td class="num-col">${Math.round((f.s / total) * 100)}%</td></tr>`).join('')}
@@ -666,6 +662,12 @@ function renderLegend(plate) {
     viewer.setHiddenFeatures([...hidden]);
   }));
   viewer.setHiddenFeatures([]);
+  // Collapsible; starts collapsed when the 3D view is narrow so the legend doesn't cover it.
+  const toggle = legend.querySelector('.legend-title');
+  const setCollapsed = (c) => { legend.classList.toggle('collapsed', c); toggle.setAttribute('aria-expanded', String(!c)); };
+  toggle.addEventListener('click', () => setCollapsed(!legend.classList.contains('collapsed')));
+  setCollapsed(state.legendCollapsed ?? $('viewer').clientWidth < 640);
+  toggle.addEventListener('click', () => { state.legendCollapsed = legend.classList.contains('collapsed'); });
 }
 
 function showTab(tab) {

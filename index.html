@@ -61,7 +61,6 @@
           <fieldset class="profiles" id="profiles">
             <legend>Printing profile <span class="he" lang="he" dir="rtl">פרופיל הדפסה</span></legend>
             <div class="profile-grid" id="profileGrid"></div>
-            <div class="profile-detail" id="profileDetail" aria-live="polite"></div>
           </fieldset>
           <fieldset class="colors">
             <legend>Color <span class="he" lang="he" dir="rtl">צבע</span></legend>
@@ -145,27 +144,29 @@
           <div class="pick-hint" id="pickHint" hidden>Click a face of the model to place it on the plate · Esc to cancel
             <span class="he" lang="he" dir="rtl">לחצו על פאה של המודל כדי להניח אותה על המשטח · Esc לביטול</span></div>
         </div>
-        <div class="estimate" id="estimate" aria-live="polite">
-          <div class="estimate-empty" id="estimateEmpty">
-            Slice the plate to see the print time and cost.
-            <span class="he" lang="he" dir="rtl">בצעו חיתוך (Slice) כדי לראות את זמן ההדפסה והעלות.</span>
-          </div>
-          <div id="estimateBody" hidden>
-            <div class="kpi">
-              <div class="kpi-label">Print time <span class="he" lang="he" dir="rtl">זמן הדפסה</span></div>
-              <div class="kpi-value" id="estTime">–</div>
-            </div>
-            <div class="kpi accent">
-              <div class="kpi-label">Estimated cost <span class="he" lang="he" dir="rtl">עלות משוערת</span></div>
-              <div class="kpi-value" id="estCost">–</div>
-              <div class="kpi-sub" id="estRate"></div>
-            </div>
-            <div class="facts" id="estFacts"></div>
-            <p class="disclaimer">Estimate only: the lab sets the final time and cost after slicing in Bambu Studio.
-              <span class="he" lang="he" dir="rtl">הערכה בלבד: המעבדה תקבע את הזמן והעלות הסופיים לאחר חיתוך ב־Bambu Studio.</span></p>
-          </div>
-        </div>
       </div>
+
+      <aside class="panel estimate" id="estimate" aria-live="polite">
+        <h2>Estimate <span class="he" lang="he" dir="rtl">הערכה</span></h2>
+        <div class="estimate-empty" id="estimateEmpty">
+          Slice the plate to see the print time and cost.
+          <span class="he" lang="he" dir="rtl">בצעו חיתוך (Slice) כדי לראות את זמן ההדפסה והעלות.</span>
+        </div>
+        <div id="estimateBody" hidden>
+          <div class="kpi">
+            <div class="kpi-label">Print time <span class="he" lang="he" dir="rtl">זמן הדפסה</span></div>
+            <div class="kpi-value" id="estTime">–</div>
+          </div>
+          <div class="kpi accent">
+            <div class="kpi-label">Estimated cost <span class="he" lang="he" dir="rtl">עלות משוערת</span></div>
+            <div class="kpi-value" id="estCost">–</div>
+            <div class="kpi-sub" id="estRate"></div>
+          </div>
+          <div class="facts" id="estFacts"></div>
+          <p class="disclaimer">Estimate only: the lab sets the final time and cost after slicing in Bambu Studio.
+            <span class="he" lang="he" dir="rtl">הערכה בלבד: המעבדה תקבע את הזמן והעלות הסופיים לאחר חיתוך ב־Bambu Studio.</span></p>
+        </div>
+      </aside>
     </section>
 
     <section class="details" id="details" aria-labelledby="detailsTitle">
