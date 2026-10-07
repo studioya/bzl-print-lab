@@ -112,10 +112,10 @@
 
         <div class="slice-btns">
           <button type="button" class="secondary big" id="sliceBtn" disabled>
-            Slice this plate <span class="he" lang="he" dir="rtl">חיתוך משטח זה</span>
+            Slice this plate <span class="he" lang="he" dir="rtl">פריסת משטח זה</span>
           </button>
           <button type="button" class="primary big" id="sliceAllBtn" disabled>
-            Slice all plates <span class="he" lang="he" dir="rtl">חיתוך כל המשטחים</span>
+            Slice all plates <span class="he" lang="he" dir="rtl">פריסת כל המשטחים</span>
           </button>
         </div>
         <div class="progress" id="sliceProgress" hidden>
@@ -138,6 +138,10 @@
           <div class="plate-tools">
             <select id="moveTo" aria-label="Move the selected piece to another plate"></select>
   <span class="has-tip tip-below tip-right">
+            <button type="button" class="icon-btn" id="centerPlate">Center <span class="he" lang="he" dir="rtl">מרכוז</span></button>
+            <span class="p-tip" role="tooltip"><span class="p-spec">Center on the plate</span><span class="p-desc">Moves all the pieces on this plate together to the middle of the plate, keeping how you arranged them.<span class="he" lang="he" dir="rtl"><b>מרכוז על המשטח.</b> מזיז את כל החלקים במשטח יחד למרכז המשטח, בלי לשנות את הסידור שלכם.</span></span></span>
+          </span>
+            <span class="has-tip tip-below tip-right">
             <button type="button" class="icon-btn" id="arrangePlate">Arrange <span class="he" lang="he" dir="rtl">סידור</span></button>
             <span class="p-tip" role="tooltip"><span class="p-spec">Arrange this plate</span><span class="p-desc">Packs the pieces on this plate automatically, with room for brims. Pieces that don’t fit move to a new plate.<span class="he" lang="he" dir="rtl"><b>סידור המשטח הזה.</b> מסדר את החלקים במשטח באופן אוטומטי, עם מרווח לשוליים. חלקים שלא נכנסים עוברים למשטח חדש.</span></span></span>
           </span>
@@ -154,7 +158,7 @@
               You can still add files, slice, see the estimate and submit.</p>
             <p>To see the 3D view: turn on <em>hardware acceleration</em> in your browser settings and restart the browser, or try another browser or computer.</p>
             <p class="he" lang="he" dir="rtl"><strong>התצוגה התלת־ממדית לא נטענת בדפדפן זה</strong> כי גרפיקת תלת־ממד (WebGL) כבויה או לא זמינה.
-              עדיין ניתן להוסיף קבצים, לבצע חיתוך, לראות הערכה ולהגיש.
+              עדיין ניתן להוסיף קבצים, לבצע פריסה, לראות הערכה ולהגיש.
               כדי לראות את התצוגה: הפעילו <em>האצת חומרה</em> בהגדרות הדפדפן והפעילו אותו מחדש, או נסו דפדפן או מחשב אחר.</p>
           </div>
           <div class="empty-state" id="emptyState">
@@ -176,7 +180,7 @@
         <h2>Estimate <span class="he" lang="he" dir="rtl">הערכה</span></h2>
         <div class="estimate-empty" id="estimateEmpty">
           Slice the plate to see the print time and cost.
-          <span class="he" lang="he" dir="rtl">בצעו חיתוך (Slice) כדי לראות את זמן ההדפסה והעלות.</span>
+          <span class="he" lang="he" dir="rtl">בצעו פריסה (Slice) כדי לראות את זמן ההדפסה והעלות.</span>
         </div>
         <div id="estimateBody" hidden>
           <div class="kpi-tag" id="estTotalLabel" hidden>All plates <span class="he" lang="he" dir="rtl">כל המשטחים</span></div>
@@ -192,7 +196,7 @@
           <div class="est-plates" id="estPlates" hidden></div>
           <div class="facts" id="estFacts"></div>
           <p class="disclaimer">Estimate only: the lab sets the final time and cost after slicing in Bambu Studio.
-            <span class="he" lang="he" dir="rtl">הערכה בלבד: המעבדה תקבע את הזמן והעלות הסופיים לאחר חיתוך ב־Bambu Studio.</span></p>
+            <span class="he" lang="he" dir="rtl">הערכה בלבד: המעבדה תקבע את הזמן והעלות הסופיים לאחר פריסה ב־Bambu Studio.</span></p>
         </div>
       </aside>
     </section>
@@ -260,7 +264,7 @@
           </div>
         </div>
         <p class="hint" id="submitHint">Upload your model and slice all plates to enable submission.
-          <span class="he" lang="he" dir="rtl">העלו את המודל ובצעו חיתוך לכל המשטחים כדי לאפשר שליחה.</span></p>
+          <span class="he" lang="he" dir="rtl">העלו את המודל ובצעו פריסה לכל המשטחים כדי לאפשר שליחה.</span></p>
       </form>
     </section>
   </main>

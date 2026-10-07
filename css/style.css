@@ -21,6 +21,7 @@
 html, body { margin: 0; }
 body {
   font-family: 'Rubik', 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
+  font-variant-numeric: lining-nums;
   color: var(--ink);
   background: var(--bg);
   font-size: 15px;
@@ -230,7 +231,7 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .est-plates table { width: 100%; border-collapse: collapse; }
 .est-plates td { padding: 3px 0; border-bottom: 1px solid var(--line); }
 .est-plates td .he { display: inline; margin-left: .35em; font-size: 11.5px; color: var(--ink-3); }
-.est-plates .num-col { text-align: right; font-variant-numeric: tabular-nums; padding-left: 8px; white-space: nowrap; }
+.est-plates .num-col { text-align: right; font-variant-numeric: lining-nums tabular-nums; padding-left: 8px; white-space: nowrap; }
 .est-plates .muted { color: var(--ink-3); font-size: 12px; }
 .est-plates tr.current td:first-child { font-weight: 600; color: var(--green-dark); }
 .est-plates tr.total td { font-weight: 700; border-bottom: 0; border-top: 2px solid var(--ink-2); padding-top: 5px; }
@@ -286,7 +287,7 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .legend { position: absolute; left: 10px; bottom: 10px; background: rgba(255,255,255,.92); border-radius: 8px; padding: 8px 10px; box-shadow: var(--shadow); font-size: 12px; max-height: calc(100% - 20px); overflow: auto; }
 .legend table { border-collapse: collapse; }
 .legend td { padding: 2px 4px; white-space: nowrap; }
-.legend td.num-col { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.legend td.num-col { text-align: right; color: var(--ink-2); font-variant-numeric: lining-nums tabular-nums; }
 .legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; vertical-align: -2px; }
 .legend label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .legend label .he { color: var(--ink-3); }
@@ -306,11 +307,11 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .fact { display: contents; }
 .fact-label { color: var(--ink-2); }
 .fact-label .he { display: inline; margin-left: .35em; font-size: 11.5px; color: var(--ink-3); }
-.fact b { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.fact b { font-weight: 600; text-align: right; font-variant-numeric: lining-nums tabular-nums; }
 .kpi { background: #f6f7f8; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
 .kpi.accent { background: var(--green-soft); }
 .kpi-label { font-size: 13px; color: var(--ink-2); }
-.kpi-value { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kpi-value { font-size: 26px; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 .kpi-sub { font-size: 12px; color: var(--ink-3); }
 .disclaimer { font-size: 12px; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 8px; margin: 0; }
 
