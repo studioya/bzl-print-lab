@@ -92,13 +92,15 @@ function profileLabel(name) { return PROCESSES.find((p) => p.name === name)?.lab
 // ---------------------------------------------------------------- setup UI
 
 function initProfiles() {
-  const grid = $('profileGrid');
+  // General-purpose profiles in the left column, functional ones on the right.
+  const cols = { general: $('profilesGeneral'), functional: $('profilesFunctional') };
   PROCESSES.forEach((p, i) => {
     const info = PROFILE_INFO[p.name] || {};
     const spec = `${p.layerHeight} mm layers · ${Math.round(p.sparseInfillDensity * 100)}% infill · ${p.wallLoops} walls`;
     const label = document.createElement('label');
     label.className = 'profile';
-    // Description in a tooltip: shown on hover, and on focus/tap for keyboards and touch screens.
+    // Description in a tooltip: shown on hover (after a short delay), and on
+    // focus/tap for keyboards and touch screens.
     label.innerHTML = `
       <input type="radio" name="profile" value="${p.name}" aria-describedby="profileTip${i}">
       <span class="p-name">${p.label}${info.he ? he(info.he) : ''}</span>
@@ -109,7 +111,7 @@ function initProfiles() {
     const input = label.querySelector('input');
     input.checked = p.name === state.profile;
     input.addEventListener('change', () => { state.profile = p.name; refresh(); });
-    grid.appendChild(label);
+    (cols[info.group] || cols.functional).appendChild(label);
   });
 }
 

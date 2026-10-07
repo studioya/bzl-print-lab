@@ -56,12 +56,17 @@ main { max-width: 1600px; margin: 0 auto; padding: 16px; }
 /* Two setup columns left of the 3D view (1 Models + 2 Print settings,
    3 Orientation & size + Slice), and the estimate on the right. */
 .workspace {
+  /* All four panels share one height: the 3D view's. Longer column content
+     scrolls inside its panel. */
+  --work-h: clamp(620px, calc(100vh - 100px), 900px);
   display: grid;
   grid-template-columns: 268px 258px minmax(0, 1fr) 236px;
   grid-template-areas: "a b stage est";
+  grid-template-rows: var(--work-h);
   gap: 12px;
-  align-items: start;
+  align-items: stretch;
 }
+.workspace > .panel { min-height: 0; overflow: hidden auto; scrollbar-width: thin; }
 .col-a { grid-area: a; }
 .col-b { grid-area: b; }
 .stage { grid-area: stage; }
@@ -116,7 +121,8 @@ select:focus, input:focus, textarea:focus { outline: 2px solid var(--green); out
 fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .profiles { display: grid; gap: 8px; }
-.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: start; }
+.profile-col { display: grid; gap: 6px; min-width: 0; }
 .profile { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 8px; cursor: pointer; transition: border-color .12s, background .12s; min-width: 0; }
 .profile:hover { border-color: #b9c3c9; }
 .profile:has(input:checked) { border-color: var(--green); background: var(--green-soft); }
@@ -125,14 +131,18 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .profile .p-name .he { display: block; margin: 0; text-align: left; font-weight: 400; font-size: 12px; white-space: nowrap; }
 .profile { position: relative; }
 .p-tip {
-  display: none; position: absolute; z-index: 30; bottom: calc(100% + 8px); left: 0; width: 250px;
+  position: absolute; z-index: 30; bottom: calc(100% + 8px); left: 0; width: 228px;
   background: #1f2428; color: #fff; border-radius: 8px; padding: 9px 11px; font-size: 12.5px; line-height: 1.4;
   box-shadow: 0 6px 24px rgba(0, 0, 0, .25); pointer-events: none;
+  visibility: hidden; opacity: 0; transition: opacity .12s, visibility 0s .12s;
 }
 .p-tip::after { content: ''; position: absolute; top: 100%; left: 18px; border: 6px solid transparent; border-top-color: #1f2428; }
-.profile-grid .profile:nth-child(even) .p-tip { left: auto; right: 0; }
-.profile-grid .profile:nth-child(even) .p-tip::after { left: auto; right: 18px; }
-.profile:hover .p-tip, .profile:focus-within .p-tip { display: block; }
+.profile-col.right .p-tip { left: auto; right: 0; }
+.profile-col.right .p-tip::after { left: auto; right: 18px; }
+/* Short delay before showing, so tooltips don't flash while moving the mouse. */
+.profile:hover .p-tip, .profile:focus-within .p-tip {
+  visibility: visible; opacity: 1; transition: opacity .15s .55s, visibility 0s .55s;
+}
 .p-tip .p-spec { display: block; font-weight: 600; margin-bottom: 3px; }
 .p-tip .p-desc { display: block; color: #e3e8eb; }
 .p-tip .he { color: #b8c2c8; font-size: 12px; margin-top: 3px; }
@@ -200,7 +210,7 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .progress-label { font-size: 12px; color: var(--ink-3); margin-top: 4px; }
 
 /* ---------- stage ---------- */
-.stage { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; min-height: 620px; height: calc(100vh - 120px); max-height: 900px; position: sticky; top: 12px; }
+.stage { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .stage-tabs { display: flex; align-items: center; gap: 4px; padding: 6px; border-bottom: 1px solid var(--line); background: #fafbfb; flex-wrap: wrap; }
 .tab { border: 0; background: transparent; padding: 7px 14px; border-radius: 7px; cursor: pointer; font-weight: 500; }
 .tab.active { background: var(--green); color: #fff; }
@@ -243,7 +253,7 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .legend.collapsed table { display: none; }
 
 /* ---------- estimate ---------- */
-.estimate { position: sticky; top: 12px; }
+
 .estimate-empty { color: var(--ink-3); font-size: 14px; }
 .estimate-empty .he { margin-top: 4px; }
 #estimateBody .kpi-value { font-size: 24px; line-height: 1.15; }
@@ -291,9 +301,9 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
 /* ---------- responsive ---------- */
 @media (max-width: 1280px) {
   /* Estimate moves under the 3D view; the two setup columns stay on the left. */
-  .workspace { grid-template-columns: 268px 258px minmax(0, 1fr); grid-template-areas: "a b stage" "a b est"; }
+  .workspace { grid-template-columns: 268px 258px minmax(0, 1fr); grid-template-areas: "a b stage" "a b est"; grid-template-rows: auto auto; }
   .stage { height: calc(100vh - 300px); min-height: 480px; }
-  .estimate { position: static; }
+  .workspace > .panel { overflow: visible; }
   #estimateBody { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   #estimateBody[hidden] { display: none; }
   #estimateBody .kpi { margin: 0; }
@@ -301,7 +311,7 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
 }
 @media (max-width: 1000px) {
   /* 3D view and estimate on top, the two setup columns side by side underneath. */
-  .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "stage stage" "est est" "a b"; }
+  .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "stage stage" "est est" "a b"; align-items: start; }
   .stage { position: static; height: auto; max-height: none; min-height: 0; }
   .viewer { flex: none; height: 60vh; min-height: 380px; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
