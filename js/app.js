@@ -27,9 +27,10 @@ const state = {
   nextPiece: 1,
   profile: PROCESSES[1]?.name || PROCESSES[0].name,
   color: 'White',
-  slice: null,    // worker result
-  worker: null,
-  sliceJob: 0,
+  results: new Map(),  // plate layout signature → sliced plate (see onSliced)
+  previews: new Map(), // `${key}:${version}:${profile}` → toolpath preview of an object
+  job: null,           // slicing in progress: { worker, id, sigs, previewKeys }
+  tab: 'prepare',
   nextKey: 1,
   pageLoadedAt: Date.now(),
 };
@@ -245,7 +246,8 @@ function initControls() {
     if (k < 1) setScale(o, Math.floor(o.scale * k * 1000) / 1000);
   });
 
-  $('sliceBtn').addEventListener('click', startSlice);
+  $('sliceBtn').addEventListener('click', () => startSlice(false));
+  $('sliceAllBtn').addEventListener('click', () => startSlice(true));
   $('addPlate').addEventListener('click', addPlate);
   $('arrangePlate').addEventListener('click', arrangeCurrentPlate);
   $('arrangeAll').addEventListener('click', arrangeAllPlates);
@@ -537,7 +539,7 @@ function select(key, pieceId = null, render = true) {
   if (plate >= 0 && plate !== state.plateIndex) {
     state.plateIndex = plate;
     renderPlateTabs();
-    if (state.slice) showPlatePreview();
+    updatePlateView();
     frameCurrentPlate();
   }
   // Re-rendering the list would steal focus from a copies box being edited.
@@ -566,7 +568,7 @@ function refresh({ reframe = false } = {}) {
   state.issues = findIssues();
   $('emptyState').hidden = state.objects.length > 0 || !!state.noViewer;
   $('dropzone').classList.toggle('compact', state.objects.length > 0);
-  invalidateSlice();
+  renderSliceState();
   renderObjectList();
   renderSelected();
   renderFitStatus();
@@ -707,7 +709,7 @@ function showPlate(i) {
   renderPlateTabs();
   renderPieceTools();
   renderScene();
-  if (state.slice) showPlatePreview();
+  updatePlateView();
   frameCurrentPlate();
 }
 
@@ -726,30 +728,64 @@ function renderPieceTools() {
 
 // ---------------------------------------------------------------- slicing
 
-function invalidateSlice() {
-  if (state.worker && state.sliceJob) { state.worker.terminate(); state.worker = null; }
-  state.sliceJob = 0;
-  state.slice = null;
-  $('sliceProgress').hidden = true;
-  $('tabPreview').disabled = true;
-  $('estimateBody').hidden = true;
-  $('estimateEmpty').hidden = false;
-  $('legend').hidden = true;
-  $('layerSlider').hidden = true;
-  $('sliceBtn').disabled = !canSlice();
+// Sliced plates are kept by layout, so editing one plate doesn't discard the
+// estimates of the others: a plate's signature changes whenever the profile,
+// one of its objects (orientation/size) or a piece's position changes.
+function plateSig(pl) {
+  return `${state.profile}|${pl.map((p) => `${p.key}:${objectByKey(p.key).version}:${p.x.toFixed(3)}:${p.y.toFixed(3)}`).sort().join(';')}`;
+}
+const previewKey = (o) => `${o.key}:${o.version}:${state.profile}`;
+const plateResult = (i) => (state.plates[i]?.length ? state.results.get(plateSig(state.plates[i])) || null : null);
+/** Plates with pieces on them: [{ index, result | null }]. */
+const usedPlates = () => state.plates.map((pl, index) => ({ index, pl })).filter((x) => x.pl.length)
+  .map(({ index, pl }) => ({ index, result: state.results.get(plateSig(pl)) || null }));
+const allSliced = () => { const u = usedPlates(); return u.length > 0 && u.every((x) => x.result); };
+
+const plateReady = (pl) => !!pl?.length && pl.every((p) => objectByKey(p.key).fits && !state.issues.has(p.id));
+const canSlice = () => state.objects.length > 0 && state.objects.every((o) => o.fits) && !state.issues.size;
+const canSlicePlate = () => !state.job && plateReady(state.plates[state.plateIndex]) && !plateResult(state.plateIndex);
+const canSliceAll = () => !state.job && canSlice() && !allSliced();
+
+/** Totals over the sliced plates. */
+function totals() {
+  const res = usedPlates().map((x) => x.result).filter(Boolean);
+  const sum = (f) => res.reduce((s, r) => s + f(r), 0);
+  return {
+    plates: res.length,
+    seconds: sum((r) => r.seconds),
+    minutes: sum((r) => r.minutes),
+    cost: sum((r) => r.cost),
+    grams: sum((r) => r.grams),
+    meters: sum((r) => r.meters),
+    layers: Math.max(0, ...res.map((r) => r.layers)),
+    hasSupport: res.some((r) => r.hasSupport),
+  };
+}
+
+/** Buttons, preview tab, estimate and submit state after any change. */
+function renderSliceState() {
+  // Forget results and previews nothing on the plates uses any more.
+  const sigs = new Set(state.plates.filter((pl) => pl.length).map(plateSig));
+  for (const k of state.job?.sigs || []) sigs.add(k);
+  for (const k of state.results.keys()) if (!sigs.has(k)) state.results.delete(k);
+  const pkeys = new Set(state.objects.map(previewKey));
+  for (const k of state.job?.previewKeys.values() || []) pkeys.add(k);
+  for (const k of state.previews.keys()) if (!pkeys.has(k)) state.previews.delete(k);
+
+  $('sliceProgress').hidden = !state.job;
+  $('sliceBtn').disabled = !canSlicePlate();
+  $('sliceAllBtn').disabled = !canSliceAll();
+  $('tabPreview').disabled = !plateResult(state.plateIndex);
+  renderEstimate();
+  updateOrderSummary();
   updateSubmitState();
 }
 
-const canSlice = () => state.objects.length > 0 && state.objects.every((o) => o.fits) && !state.issues.size;
-
-/** Drops plates with nothing on them (before slicing, so plates match the estimate). */
-function pruneEmptyPlates() {
-  const cur = state.plates[state.plateIndex];
-  const kept = state.plates.filter((pl) => pl.length);
-  if (kept.length === state.plates.length) return false;
-  state.plates = kept;
-  state.plateIndex = Math.max(0, kept.indexOf(cur));
-  return true;
+/** After switching plates: keep the preview if this plate is sliced. */
+function updatePlateView() {
+  renderSliceState();
+  if (state.tab === 'preview' && plateResult(state.plateIndex)) showPlatePreview();
+  else showTab('prepare');
 }
 
 const STAGE_LABEL = {
@@ -761,56 +797,56 @@ const STAGE_LABEL = {
   estimate: ['Estimating time', 'חישוב זמן'],
 };
 
-function startSlice() {
-  if (!canSlice()) return;
-  if (pruneEmptyPlates()) { renderPlateTabs(); renderPieceTools(); renderScene(); }
-  invalidateSlice();
+/** Slices the plate shown (all = false) or every plate not sliced yet. */
+function startSlice(all) {
+  if (all ? !canSliceAll() : !canSlicePlate()) return;
   cancelPick();
   const proc = currentProcess();
   const info = PROFILE_INFO[proc.name] || {};
-  const job = Date.now();
-  state.sliceJob = job;
-  state.worker = new Worker(new URL('./slicer/worker.js', import.meta.url), { type: 'module' });
-  $('sliceBtn').disabled = true;
-  $('sliceProgress').hidden = false;
+  const targets = all
+    ? state.plates.filter((pl) => pl.length && !state.results.has(plateSig(pl)))
+    : [state.plates[state.plateIndex]];
+  const keys = new Set(targets.flat().map((p) => p.key));
+  const objects = state.objects.filter((o) => keys.has(o.key));
+  const id = Date.now();
+  const worker = new Worker(new URL('./slicer/worker.js', import.meta.url), { type: 'module' });
+  const job = { worker, id, sigs: targets.map(plateSig), previewKeys: new Map(objects.map((o) => [o.key, previewKey(o)])), processName: proc.name };
+  state.job = job;
   $('sliceBar').style.width = '0%';
   $('sliceLabel').textContent = 'Starting…';
+  renderSliceState();
 
+  const finish = () => { worker.terminate(); if (state.job === job) state.job = null; };
   const fail = (en, h) => {
-    state.worker?.terminate();
-    state.worker = null;
-    state.sliceJob = 0;
-    $('sliceProgress').hidden = true;
-    $('sliceBtn').disabled = false;
+    finish();
+    renderSliceState();
     showLoadError([[en, h]]);
   };
-  state.worker.onmessage = (e) => {
+  worker.onmessage = (e) => {
     const msg = e.data;
-    if (msg.id !== job || state.sliceJob !== job) return;
+    if (msg.id !== id || state.job !== job) return;
     if (msg.type === 'progress') {
       $('sliceBar').style.width = `${Math.round(msg.fraction * 100)}%`;
       const [en, h] = STAGE_LABEL[msg.stage] || [msg.stage, ''];
       $('sliceLabel').textContent = `${en} · ${h}`;
     } else if (msg.type === 'done') {
-      state.worker.terminate();
-      state.worker = null;
-      state.sliceJob = 0;
-      onSliced(msg.result);
+      finish();
+      onSliced(msg.result, job);
     } else if (msg.type === 'error') {
       console.error(msg.stack || msg.message);
       fail(`Slicing failed: ${msg.message}`, 'החיתוך נכשל. נסו כיוון אחר או קובץ אחר.');
     }
   };
-  state.worker.onerror = (e) => {
+  worker.onerror = (e) => {
     console.error(e);
     fail('Slicing failed in this browser. Try an up-to-date Chrome, Edge, Firefox or Safari.', 'החיתוך נכשל בדפדפן זה.');
   };
-  state.worker.postMessage({
-    id: job,
-    objects: state.objects.map((o) => ({ key: o.key, positions: o.oriented.positions })),
+  worker.postMessage({
+    id,
+    objects: objects.map((o) => ({ key: o.key, positions: o.oriented.positions })),
     processName: proc.name,
     filamentName: info.filament || 'Generic PLA - Bezalel Modelling Center',
-    plates: state.plates.map((pl) => pl.map(({ key, x, y }) => ({ key, x, y }))),
+    plates: targets.map((pl) => pl.map(({ key, x, y }) => ({ key, x, y }))),
   });
 }
 
@@ -818,52 +854,69 @@ function calibration(name) {
   return CONFIG.timeCalibration.perProfile?.[name] ?? CONFIG.timeCalibration.default ?? 1;
 }
 
-function onSliced(result) {
+function onSliced(result, job) {
   const k = calibration(result.processName);
-  result.plates.forEach((p) => { p.seconds *= k; p.byFeature = p.byFeature.map((s) => s * k); });
-  result.totalSeconds = result.plates.reduce((s, p) => s + p.seconds, 0);
-  result.totalMinutes = Math.ceil(result.totalSeconds / 60);
-  result.cost = result.totalMinutes * CONFIG.pricePerMinute;
-  result.grams = result.plates.reduce((s, p) => s + p.grams, 0);
-  result.meters = result.plates.reduce((s, p) => s + p.meters, 0);
-  state.slice = result;
-
-  $('sliceProgress').hidden = true;
-  $('sliceBtn').disabled = false;
-  $('tabPreview').disabled = false;
-  renderEstimate();
-  showTab('preview');
-  showPlatePreview();
-  updateOrderSummary();
-  updateSubmitState();
+  result.plates.forEach((p, i) => {
+    p.seconds *= k;
+    p.byFeature = p.byFeature.map((s) => s * k);
+    p.minutes = Math.ceil(p.seconds / 60);
+    p.cost = p.minutes * CONFIG.pricePerMinute;
+    p.hasSupport = p.items.some((it) => result.objects[it.key]?.hasSupport);
+    state.results.set(job.sigs[i], p);
+  });
+  for (const [key, pv] of Object.entries(result.previews)) state.previews.set(job.previewKeys.get(key), pv);
+  renderSliceState();
+  if (plateResult(state.plateIndex)) {
+    showTab('preview');
+    showPlatePreview();
+  }
 }
 
 function renderEstimate() {
-  const r = state.slice;
-  $('estimateEmpty').hidden = true;
-  $('estimateBody').hidden = false;
-  $('estTime').textContent = fmtDuration(r.totalSeconds);
-  $('estCost').textContent = `${CONFIG.currency}${fmtMoney(r.cost)}`;
-  $('estRate').textContent = `${r.totalMinutes} min × ${CONFIG.currency}${fmtMoney(CONFIG.pricePerMinute)} / min`;
+  const used = usedPlates();
+  const t = totals();
+  const any = t.plates > 0;
+  $('estimateEmpty').hidden = any;
+  $('estimateBody').hidden = !any;
+  if (!any) return;
+  const missing = used.filter((x) => !x.result).map((x) => x.index + 1);
+  const money = (v) => `${CONFIG.currency}${fmtMoney(v)}`;
+  $('estTotalLabel').hidden = used.length < 2;
+  $('estTime').textContent = fmtDuration(t.seconds);
+  $('estCost').textContent = money(t.cost);
+  $('estRate').innerHTML = missing.length
+    ? `<span class="est-missing">Plate ${missing.join(', ')} not sliced yet: press <b>Slice all plates</b> for the full total.
+        ${he(`משטח ${missing.join(', ')} עדיין לא נחתך: לחצו ״חיתוך כל המשטחים״ לסכום המלא.`)}</span>`
+    : `${t.minutes} min × ${money(CONFIG.pricePerMinute)} / min`;
+  // Summary per plate, with the total across plates.
+  const table = $('estPlates');
+  table.hidden = used.length < 2;
+  if (used.length >= 2) {
+    table.innerHTML = `<div class="est-plates-head">Cost per plate ${he('עלות לפי משטח')}</div>
+      <table>${used.map(({ index, result: r }) => `<tr class="${index === state.plateIndex ? 'current' : ''}">
+        <td>Plate ${index + 1}</td>
+        ${r ? `<td class="num-col">${fmtDuration(r.seconds)}</td><td class="num-col">${money(r.cost)}</td>`
+    : `<td class="num-col muted" colspan="2">not sliced · לא נחתך</td>`}</tr>`).join('')}
+        <tr class="total"><td>Total${he('סה״כ')}</td><td class="num-col">${fmtDuration(t.seconds)}</td><td class="num-col">${money(t.cost)}</td></tr>
+      </table>`;
+  }
   const rows = [
-    ['Profile', 'פרופיל', profileLabel(r.processName)],
+    ['Profile', 'פרופיל', profileLabel(state.profile)],
     ['Objects', 'אובייקטים', `${state.objects.length}`],
     ['Pieces', 'חלקים', `${totalCopies()}`],
-    ['Plates', 'משטחים', `${r.plates.length}`],
-    ['Filament', 'חומר', `${fmt(r.grams, 1)} g · ${fmt(r.meters, 2)} m`],
-    ['Layers', 'שכבות', `${r.layers}`],
-    ['Supports', 'תמיכות', r.hasSupport ? 'Yes · כן' : 'No · לא'],
+    ['Plates', 'משטחים', `${used.length}`],
+    ['Filament', 'חומר', `${fmt(t.grams, 1)} g · ${fmt(t.meters, 2)} m`],
+    ['Supports', 'תמיכות', t.hasSupport ? 'Yes · כן' : 'No · לא'],
   ];
-  if (r.plates.length > 1) {
-    r.plates.forEach((p, i) => rows.push([`Plate ${i + 1}`, `משטח ${i + 1}`, `${fmtDuration(p.seconds)} · ${p.items.length} pcs`]));
-  }
   $('estFacts').innerHTML = rows.map(([en, h, v]) => `<div class="fact"><span class="fact-label">${en}${he(h)}</span><b>${v}</b></div>`).join('');
 }
 
 function showPlatePreview() {
-  const r = state.slice;
-  const plate = r.plates[state.plateIndex];
-  viewer.setPreview(r.previews, plate.items);
+  const plate = plateResult(state.plateIndex);
+  if (!plate) return;
+  const previews = {};
+  for (const it of plate.items) previews[it.key] = state.previews.get(previewKey(objectByKey(it.key)));
+  viewer.setPreview(previews, plate.items);
   const range = $('layerRange');
   range.max = plate.layers - 1;
   range.value = plate.layers - 1;
@@ -872,7 +925,7 @@ function showPlatePreview() {
 }
 
 function updateLayerView() {
-  if (!state.slice) return;
+  if (!plateResult(state.plateIndex)) return;
   const top = +$('layerRange').value;
   viewer.setPreviewLayers($('singleLayer').checked ? top : 0, top);
   $('layerLabel').innerHTML = `${top + 1}<br>${fmt(viewer.zs[top] ?? 0, 2)}`;
@@ -906,7 +959,8 @@ function renderLegend(plate) {
 }
 
 function showTab(tab) {
-  const preview = tab === 'preview' && !!state.slice;
+  const preview = tab === 'preview' && !!plateResult(state.plateIndex);
+  state.tab = preview ? 'preview' : 'prepare';
   $('tabPrepare').classList.toggle('active', !preview);
   $('tabPreview').classList.toggle('active', preview);
   $('tabPrepare').setAttribute('aria-selected', String(!preview));
@@ -922,12 +976,15 @@ function updateOrderSummary() {
   const n = state.objects.length, c = totalCopies();
   const parts = n ? [`${n} object${n > 1 ? 's' : ''}`, `${c} piece${c > 1 ? 's' : ''}`] : ['No models yet'];
   parts.push(profileLabel(state.profile), state.color);
-  if (state.slice) parts.push(`${fmtDuration(state.slice.totalSeconds)} · ${CONFIG.currency}${fmtMoney(state.slice.cost)}`);
+  if (allSliced()) {
+    const t = totals();
+    parts.push(`${fmtDuration(t.seconds)} · ${CONFIG.currency}${fmtMoney(t.cost)}`);
+  }
   $('orderSummary').textContent = parts.join(' · ');
 }
 
 function updateSubmitState() {
-  const ready = !!(canSlice() && state.slice);
+  const ready = canSlice() && allSliced();
   $('submitBtn').disabled = !ready;
   $('submitHint').hidden = ready;
 }
@@ -987,12 +1044,12 @@ function plateLayout() {
 async function onSubmit(e) {
   e.preventDefault();
   setSubmitStatus('');
-  if (!state.slice) return;
+  if (!canSlice() || !allSliced()) return;
   if (!validateForm()) {
     setSubmitStatus(`Please fill in the highlighted fields. ${he('נא למלא את השדות המסומנים.')}`, true);
     return;
   }
-  const r = state.slice;
+  const t = totals();
   const fileName = (id) => state.files.find((f) => f.id === id)?.file.name || '';
   const details = {
     name: $('fName').value.trim(),
@@ -1016,18 +1073,18 @@ async function onSubmit(e) {
       scalePercent: +(o.scale * 100).toFixed(1),
       rotation: o.R.map((v) => Math.round(v * 1e6) / 1e6),
     })),
-    profile: r.processName,
-    profileLabel: profileLabel(r.processName),
+    profile: state.profile,
+    profileLabel: profileLabel(state.profile),
     color: state.color,
     copies: totalCopies(),
-    plates: r.plates.length,
+    plates: t.plates,
     plateLayout: plateLayout(),
-    estimatedMinutes: r.totalMinutes,
-    estimatedCost: r.cost,
+    estimatedMinutes: t.minutes,
+    estimatedCost: t.cost,
     pricePerMinute: CONFIG.pricePerMinute,
-    filamentGrams: Math.round(r.grams * 10) / 10,
-    layers: r.layers,
-    supports: r.hasSupport,
+    filamentGrams: Math.round(t.grams * 10) / 10,
+    layers: t.layers,
+    supports: t.hasSupport,
     secondsOnPage: Math.round((Date.now() - state.pageLoadedAt) / 1000),
   };
 
@@ -1035,7 +1092,7 @@ async function onSubmit(e) {
   btn.disabled = true;
   try {
     setSubmitStatus('Preparing files… · מכין קבצים…');
-    const plate3mf = await buildPlatesFile(r.processName);
+    const plate3mf = await buildPlatesFile(state.profile);
     if (plate3mf.size > CONFIG.maxFileMB * 1024 * 1024) {
       throw new Error(`The models together are too detailed to upload (over ${CONFIG.maxFileMB} MB). Remove an object or export coarser meshes.`);
     }
