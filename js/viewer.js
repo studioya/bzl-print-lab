@@ -39,7 +39,9 @@ export class Viewer {
     this.resize();
     new ResizeObserver(() => this.resize()).observe(container);
     this.renderer.domElement.addEventListener('pointerdown', (e) => this.pointerDown(e));
+    this.renderer.domElement.addEventListener('pointermove', (e) => this.pointerMove(e));
     this.renderer.domElement.addEventListener('pointerup', (e) => this.pointerUp(e));
+    this.renderer.domElement.addEventListener('pointercancel', () => this.endDrag(false));
     this.resetCamera();
     const loop = () => {
       requestAnimationFrame(loop);
@@ -141,9 +143,10 @@ export class Viewer {
 
   /**
    * objects: [{ key, positions (oriented, centred), version, fits }]
-   * placements: [{ key, x, y }] — what to show on the current plate
+   * placements: [{ id, key, x, y, bad }] — the pieces on the current plate
+   * selectedId: the selected piece
    */
-  setScene(objects, placements, selectedKey) {
+  setScene(objects, placements, selectedId) {
     this.clearGroup(this.modelGroup, false);
     this.objects = new Map(objects.map((o) => [o.key, o]));
     // Rebuild geometry only for objects that changed.
@@ -170,11 +173,13 @@ export class Viewer {
       const o = this.objects.get(pl.key);
       const g = this.geoms.get(pl.key);
       if (!o || !g) continue;
-      const sel = pl.key === selectedKey;
-      const mat = o.fits ? (sel ? this.materials.selected : this.materials.normal) : (sel ? this.materials.badSelected : this.materials.bad);
+      const sel = pl.id === selectedId;
+      const bad = !o.fits || pl.bad;
+      const mat = bad ? (sel ? this.materials.badSelected : this.materials.bad) : (sel ? this.materials.selected : this.materials.normal);
       const m = new THREE.Mesh(g.geom, mat);
       m.position.set(pl.x, pl.y, 0);
       m.userData.key = pl.key;
+      m.userData.id = pl.id;
       this.modelGroup.add(m);
     }
     this.requestRender();
@@ -207,16 +212,66 @@ export class Viewer {
     this.renderer.domElement.style.cursor = cb ? 'crosshair' : '';
   }
 
-  pointerDown(e) { this.downAt = [e.clientX, e.clientY]; }
-
-  pointerUp(e) {
-    if (!this.downAt || this.mode !== 'model') return;
-    if (Math.hypot(e.clientX - this.downAt[0], e.clientY - this.downAt[1]) > 4) return; // was a drag
+  raycaster(e) {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
     const ray = new THREE.Raycaster();
     ray.setFromCamera(ndc, this.camera);
-    const hit = ray.intersectObjects(this.modelGroup.children, false)[0];
+    return ray;
+  }
+
+  /** Point on the plate (z = 0) under the pointer, or null. */
+  platePoint(e, z = 0) {
+    const p = new THREE.Vector3();
+    return this.raycaster(e).ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 0, 1), -z), p) ? p : null;
+  }
+
+  pointerDown(e) {
+    this.downAt = [e.clientX, e.clientY];
+    // Dragging a piece moves it on the plate (left button, not while picking a face).
+    if (this.mode !== 'model' || this.onFacePick || e.button !== 0 || !this.onMove) return;
+    const hit = this.raycaster(e).intersectObjects(this.modelGroup.children, false)[0];
+    if (!hit) return;
+    const start = this.platePoint(e, hit.point.z);
+    if (!start) return;
+    const m = hit.object;
+    this.drag = { mesh: m, z: hit.point.z, dx: m.position.x - start.x, dy: m.position.y - start.y, x0: m.position.x, y0: m.position.y, moved: false };
+    this.controls.enabled = false;
+    this.renderer.domElement.setPointerCapture(e.pointerId);
+  }
+
+  pointerMove(e) {
+    const d = this.drag;
+    if (!d) return;
+    if (!d.moved && Math.hypot(e.clientX - this.downAt[0], e.clientY - this.downAt[1]) <= 4) return;
+    const p = this.platePoint(e, d.z);
+    if (!p) return;
+    d.moved = true;
+    this.renderer.domElement.style.cursor = 'grabbing';
+    let x = p.x + d.dx, y = p.y + d.dy;
+    if (this.clampDrag) ({ x, y } = this.clampDrag(d.mesh.userData.key, x, y));
+    d.mesh.position.set(x, y, 0);
+    this.requestRender();
+  }
+
+  /** Ends a drag; returns true if a piece was moved. */
+  endDrag(commit) {
+    const d = this.drag;
+    if (!d) return false;
+    this.drag = null;
+    this.controls.enabled = true;
+    this.renderer.domElement.style.cursor = '';
+    if (!d.moved) return false;
+    if (commit && this.onMove) this.onMove(d.mesh.userData.id, d.mesh.position.x, d.mesh.position.y);
+    else { d.mesh.position.set(d.x0, d.y0, 0); this.requestRender(); }
+    return true;
+  }
+
+  pointerUp(e) {
+    if (this.endDrag(true)) return;
+    if (!this.downAt || this.mode !== 'model') return;
+    if (Math.hypot(e.clientX - this.downAt[0], e.clientY - this.downAt[1]) > 4) return; // was an orbit
+    const hit = this.raycaster(e).intersectObjects(this.modelGroup.children, false)[0];
     if (this.onFacePick) {
       if (hit && hit.face) {
         const n = hit.face.normal.clone();
@@ -226,7 +281,7 @@ export class Viewer {
       }
       return;
     }
-    if (this.onSelect) this.onSelect(hit ? hit.object.userData.key : null);
+    if (this.onSelect) this.onSelect(hit ? hit.object.userData.key : null, hit ? hit.object.userData.id : null);
   }
 
   // ---- toolpath preview ----

@@ -11,7 +11,9 @@ import { area } from '../js/slicer/clip.js';
 import { arrangePlates, fitsPlate, PLATE } from '../js/arrange.js';
 import { parseSTL, parseOBJ, parse3MF } from '../js/loaders.js';
 import { toBinarySTL, orientMesh, alignRotation, autoOrient, splitComponents } from '../js/mesh.js';
-import { build3MF } from '../js/export3mf.js';
+import { build3MF, buildProject3MF, bambuPlateOrigin } from '../js/export3mf.js';
+import { PROJECT_PRESETS } from '../js/project-presets.js';
+import { footprint, hullsOverlap, findFreeSpot, clampToPlate } from '../js/arrange.js';
 import * as fx from './fixtures.mjs';
 
 const NORMAL = PROCESSES.find((p) => p.name === 'Normal - Bezalel Modelling Center');
@@ -184,6 +186,64 @@ test('oriented plate 3MF round-trips through the 3MF loader', async () => {
   for (let i = 0; i < pos.length; i += 3) { minX = Math.min(minX, pos[i]); maxX = Math.max(maxX, pos[i]); }
   assert.equal(minX, 45);
   assert.equal(maxX, 125);
+});
+
+test('Bambu project 3MF keeps every piece on its plate, with the lab presets', async () => {
+  const cube = fx.f32(fx.box(10, 10, 10, -5, -5, 0));
+  const plates = [
+    [{ object: 0, x: 20, y: 30 }, { object: 1, x: 100, y: 30 }, { object: 0, x: 200, y: 200 }],
+    [{ object: 0, x: 120, y: 120 }],
+    [],                                  // empty plates are dropped
+    [{ object: 1, x: 10, y: 10 }],
+  ];
+  const blob = await buildProject3MF([{ name: 'a & <b>', positions: cube }, { name: 'c', positions: cube }], plates, PROJECT_PRESETS, {
+    processName: 'Press - Bezalel Modelling Center', filamentName: 'Generic PLA Strong - Bezalel Modelling Center',
+    color: '#000000', printableArea: PRINTER.printableArea,
+  });
+  const { readZip } = await import('../js/loaders.js');
+  const files = await readZip(await blob.arrayBuffer(), /./);
+  const text = (n) => new TextDecoder().decode(files[n]);
+  const model = text('3D/3dmodel.model');
+  assert.match(model, /<metadata name="Application">BambuStudio-02\.07\.01\.51<\/metadata>/);
+  // 3 plates → 2 columns; plate size 240 − 1.25 → 238 mm, slot 238 × 1.2.
+  const r = (o) => ({ x: +o.x.toFixed(6), y: +o.y.toFixed(6) });
+  assert.deepEqual(r(bambuPlateOrigin(1, 3, 240, 240)), { x: 285.6, y: 0 });
+  assert.deepEqual(r(bambuPlateOrigin(2, 3, 240, 240)), { x: 0, y: -285.6 });
+  assert.deepEqual(r(bambuPlateOrigin(4, 5, 240, 240)), { x: 285.6, y: -285.6 }, '5 plates → 3 columns');
+  const items = [...model.matchAll(/<item objectid="(\d)" transform="1 0 0 0 1 0 0 0 1 ([-\d.]+) ([-\d.]+) 0"/g)].map((m) => [+m[1], +m[2], +m[3]]);
+  assert.deepEqual(items, [[1, 38, 48], [1, 218, 218], [1, 18 + 285.6 + 120, 138], [2, 118, 48], [2, 28, 28 - 285.6]]);
+  const cfg = text('Metadata/model_settings.config');
+  const platesXml = cfg.split('<plate>').slice(1);
+  assert.equal(platesXml.length, 3);
+  const inst = (x) => [...x.matchAll(/object_id" value="(\d)"\/>\s*<metadata key="instance_id" value="(\d)"/g)].map((m) => `${m[1]}:${m[2]}`);
+  assert.deepEqual(inst(platesXml[0]), ['1:0', '1:1', '2:0']);
+  assert.deepEqual(inst(platesXml[1]), ['1:2']);
+  assert.deepEqual(inst(platesXml[2]), ['2:1']);
+  assert.match(cfg, /<metadata key="name" value="a &amp; &lt;b&gt;"\/>/);
+  const proj = JSON.parse(text('Metadata/project_settings.config'));
+  assert.equal(proj.print_settings_id, 'Press - Bezalel Modelling Center');
+  assert.equal(proj.printer_settings_id, 'BZL Bambu Lab P1S 0.4 nozzle');
+  assert.deepEqual(proj.filament_settings_id, ['Generic PLA Strong - Bezalel Modelling Center']);
+  assert.deepEqual(proj.filament_colour, ['#000000']);
+  assert.equal(proj.top_shell_layers, '0');
+  assert.deepEqual(proj.printable_area, ['18x18', '258x18', '258x258', '18x258']);
+  // Our own loader reads it back with all 5 pieces.
+  assert.equal((await parse3MF(await blob.arrayBuffer())).length, cube.length * 5);
+});
+
+test('arranging helpers: footprints, overlap, free spots, clamping', () => {
+  const sq = footprint(fx.f32(fx.box(10, 10, 4, -5, -5, 0)));
+  assert.equal(sq.length, 4);
+  assert.equal(hullsOverlap(sq, 0, 0, sq, 9, 0), true);
+  assert.equal(hullsOverlap(sq, 0, 0, sq, 10, 0), false, 'touching is fine');
+  // Two triangles whose boxes overlap but shapes don't.
+  const tri = [[0, 0], [10, 0], [0, 10]];
+  const tri2 = [[10, 10], [0, 10], [10, 0]];
+  assert.equal(hullsOverlap(tri, 0, 0, tri2, 1, 1), false);
+  const spot = findFreeSpot({ x: 50, y: 50 }, [{ x: 120, y: 120, size: { x: 100, y: 100 } }], 4);
+  assert.ok(spot && (Math.abs(spot.x - 120) >= 79 || Math.abs(spot.y - 120) >= 79));
+  assert.equal(findFreeSpot({ x: 200, y: 200 }, [{ x: 120, y: 120, size: { x: 100, y: 100 } }], 4), null);
+  assert.deepEqual(clampToPlate(-10, 300, { x: 20, y: 20 }), { x: 10, y: PLATE.depth - 10 });
 });
 
 test('STL binary and ASCII parse to the same triangles', () => {

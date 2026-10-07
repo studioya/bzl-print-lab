@@ -8,8 +8,12 @@ A single web page where students:
 3. pick one of the lab's **Bambu Studio printing profiles** and a colour (black/white),
 4. **orient** each object (auto-orient, lay on face, rotate) and **resize** it (scale %, size in mm,
    or *Scale to fit the plate* for models that are too big),
-5. **slice the plate(s) in the browser** and get a Bambu-style toolpath preview plus a **time and cost estimate**,
-6. fill in their details and **submit**. The model lands in the lab's Google Drive folder
+5. **arrange the plates** like in Bambu Studio: copies are placed automatically, then students can
+   drag pieces around, add plates (*+ Plate*), move a piece to another plate, delete a plate, or press
+   *Arrange* (this plate) / *Arrange all* (re-pack everything onto as few plates as possible).
+   Pieces that overlap or stick out of the plate turn red and block slicing,
+6. **slice the plate(s) in the browser** and get a Bambu-style toolpath preview plus a **time and cost estimate**,
+7. fill in their details and **submit**. The model lands in the lab's Google Drive folder
    `STUDENT 3D SUBMISSIONS`, the details go into a Google Sheet with a Status column, and the
    student gets a confirmation email.
 
@@ -22,6 +26,7 @@ js/slicer/                  the slicer (runs in a Web Worker)
 js/config.js                lab settings: backend URL, price per minute, limits, calibration
 js/profile-info.js          student-facing profile names + descriptions (EN/HE)
 js/profiles-data.js         GENERATED from profiles/ — don't edit by hand
+js/project-presets.js       GENERATED from profiles/ — full presets for the Bambu project file
 profiles/                   lab .bbscfg export + Bambu's base presets it inherits from
 apps-script/                Google Apps Script backend (Drive + Sheet + email)
 tools/                      profile resolver, vendored-library rebuild script
@@ -71,10 +76,11 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 - **Drive:** `STUDENT 3D SUBMISSIONS/2026-10-06 14.32 · Student Name · P261006-7K3Q/` containing
   - `ORIGINAL – <file>`: each file exactly as the student uploaded it (files whose objects were all
     removed from the plate are not uploaded),
-  - `ORIENTED – oriented-plate.3mf`: every object on the plate once, rotated the way the student
-    oriented it (split parts as separate objects). Open it in Bambu Studio, set the copies listed in
-    the Sheet and press *Arrange*.
-  - `<id> – details.txt`: all submission details.
+  - `PLATES – plates.3mf`: a **Bambu Studio project** with every piece exactly where the student put
+    it, on the same plates, rotated and resized as they chose, with the printer, filament (colour) and
+    printing profile they picked. Open it with **File → Open Project** (if you drag it into Bambu
+    Studio instead, choose *Open as project*, not *Import geometry only*, or the plates are lost).
+  - `<id> – details.txt`: all submission details, including what is on each plate.
 
   Folder names start with the date, so sorting the folder by **Name, Z→A** (or by *Last modified*)
   lists the newest submissions first. Drive remembers your sort choice.
@@ -134,7 +140,8 @@ will differ somewhat. To calibrate:
 3. If a preset now inherits from a different Bambu system preset, copy that preset's JSON from
    [BambuStudio/resources/profiles/BBL](https://github.com/bambulab/BambuStudio/tree/master/resources/profiles/BBL)
    into `profiles/bambu-base/`.
-4. Run `node tools/resolve-profiles.mjs`. This regenerates `js/profiles-data.js`.
+4. Run `node tools/resolve-profiles.mjs`. This regenerates `js/profiles-data.js` (what the slicer
+   uses) and `js/project-presets.js` (the full presets written into the PLATES project file).
 5. Students see each preset's own name with the shared suffix removed
    ("Normal - Bezalel Modelling Center" → "Normal"). Add a Hebrew name and a short EN/HE
    description for any new preset in `js/profile-info.js`.
@@ -164,10 +171,10 @@ preset values:
   classic jerk at corners, the filament's max volumetric speed (15 mm³/s for the lab's generic PLA), the
   20 mm/s first layer, overhang slowdowns, retractions, and the minimum layer time for cooling
   (8 s, down to 20 mm/s).
-- **Sliced per plate:** all objects and their copies are packed onto as few plates as needed and
-  printed together layer by layer, so travel between parts and shared layer time are counted as on
-  the real printer (e.g. 4 small parts take much less than 4× one part). Each object is sliced once
-  and reused for its copies.
+- **Sliced per plate:** each plate is estimated as the student arranged it, all its pieces printed
+  together layer by layer, so travel between parts and shared layer time are counted as on the real
+  printer (e.g. 4 small parts take much less than 4× one part). Each object is sliced once and reused
+  for its copies.
 - **Split** works like Bambu Studio's *Split → To objects*: a file is separated into its
   disconnected parts (by shared vertices). Note that a hollow model whose inner wall is a separate
   shell will also come apart, as it does in Bambu Studio.

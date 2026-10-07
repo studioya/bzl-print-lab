@@ -216,9 +216,24 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .tab.active { background: var(--green); color: #fff; }
 .tab.active .he { color: rgba(255,255,255,.85); }
 .tab:disabled { opacity: .45; cursor: not-allowed; }
-.plate-tabs { display: flex; gap: 4px; margin-inline-start: auto; flex-wrap: wrap; }
-.plate-tabs button { border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 4px 9px; cursor: pointer; font-size: 13px; }
-.plate-tabs button.active { border-color: var(--green); color: var(--green-dark); font-weight: 600; }
+.plate-bar { display: flex; align-items: center; gap: 6px; padding: 6px; border-bottom: 1px solid var(--line); flex-wrap: wrap; font-size: 13px; }
+.plate-bar .he { display: inline; font-size: inherit; color: inherit; opacity: .75; }
+.plate-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.plate-tab { display: inline-flex; align-items: stretch; border: 1px solid var(--line); background: #fff; border-radius: 6px; overflow: hidden; }
+.plate-tab button { border: 0; background: transparent; cursor: pointer; font-size: 13px; padding: 4px 8px; color: inherit; }
+.plate-tab .plate-del { padding: 4px 6px; color: var(--ink-3); border-inline-start: 1px solid var(--line); }
+.plate-tab .plate-del:hover { color: var(--danger); }
+.plate-tab.active { border-color: var(--green); color: var(--green-dark); font-weight: 600; background: var(--green-soft); }
+.plate-tab.bad { border-color: var(--danger); }
+.plate-tab.bad .plate-pick { color: var(--danger); }
+.plate-count { display: inline-block; min-width: 18px; padding: 0 5px; margin-inline-start: 2px; border-radius: 9px; background: #e8ecee; color: var(--ink-2); font-size: 11px; font-weight: 600; text-align: center; }
+.plate-add { border: 1px dashed var(--line); background: #fff; border-radius: 6px; padding: 4px 9px; cursor: pointer; font-size: 13px; }
+.plate-add:hover { border-color: var(--green); color: var(--green-dark); }
+.plate-add:disabled { opacity: .45; cursor: not-allowed; }
+.plate-tools { display: flex; gap: 6px; align-items: center; margin-inline-start: auto; flex-wrap: wrap; }
+.plate-tools select { font-size: 13px; padding: 4px 6px; max-width: 210px; }
+.plate-tools .icon-btn:disabled { opacity: .45; cursor: not-allowed; }
+.plate-hint { flex-basis: 100%; color: var(--ink-3); font-size: 12px; }
 .viewer { position: relative; flex: 1; min-height: 0; }
 .viewer canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .empty-state { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; color: var(--ink-2); }

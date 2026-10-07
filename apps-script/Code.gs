@@ -19,7 +19,7 @@ const SETTINGS = {
   REPLY_TO: '',
   TIMEZONE: 'Asia/Jerusalem',
   MAX_FILE_MB: 25,
-  MAX_MODEL_FILES: 5,   // originals per submission (+1 oriented 3MF made by the page)
+  MAX_MODEL_FILES: 5,   // originals per submission (+1 plates 3MF made by the page)
   MAX_OBJECTS: 50,
   MAX_COPIES_PER_OBJECT: 10,
   ALLOWED_EXTENSIONS: ['stl', 'obj', '3mf'],
@@ -216,7 +216,7 @@ function addFile_(req) {
   if (sub.files.length >= SETTINGS.MAX_MODEL_FILES + 1) throw userError_('Too many files.');
   const bytes = Utilities.base64Decode(data);
   if (bytes.length > SETTINGS.MAX_FILE_MB * 1024 * 1024) throw userError_('File is too large.');
-  const prefix = req.kind === 'oriented' ? 'ORIENTED – ' : 'ORIGINAL – ';
+  const prefix = req.kind === 'plates' ? 'PLATES – ' : req.kind === 'oriented' ? 'ORIENTED – ' : 'ORIGINAL – ';
   const file = DriveApp.getFolderById(sub.folderId)
     .createFile(Utilities.newBlob(bytes, 'application/octet-stream', prefix + safeName_(name)));
   sub.files.push({ name: file.getName(), url: file.getUrl() });
@@ -291,6 +291,9 @@ function validate_(d, o) {
         rotation: Array.isArray(x.rotation) ? x.rotation.slice(0, 9).map(Number) : null,
       };
     }),
+    plateLayout: (Array.isArray(o.plateLayout) ? o.plateLayout : []).slice(0, 36).map(function (pl) {
+      return (Array.isArray(pl) ? pl : []).slice(0, SETTINGS.MAX_OBJECTS + 1).map(function (s) { return str(s, 180); });
+    }),
   };
   const problems = [];
   if (v.name.length < 2) problems.push('name');
@@ -357,9 +360,11 @@ function summaryText_(row, v) {
       (o.unitScale !== 1 ? ', file units ×' + o.unitScale : '') +
       (o.scalePercent !== 100 ? ', resized to ' + o.scalePercent + '%' : '') +
       ', rotation ' + JSON.stringify(o.rotation);
+  })).concat(v.plateLayout.length ? ['Plates as arranged by the student:'] : []).concat(v.plateLayout.map(function (pl, i) {
+    return '  Plate ' + (i + 1) + ': ' + pl.join(', ');
   })).concat([
-    '  The "ORIENTED" 3MF in this folder has every object once, already rotated and resized',
-    '  as the student chose: open it in Bambu Studio, set the copies and arrange.',
+    '  The "PLATES" 3MF in this folder is a Bambu Studio project with every piece on the plate',
+    '  where the student placed it, and the chosen profile. Open it with File → Open Project.',
     '',
     'Notes:',
     row.notes || '-',
