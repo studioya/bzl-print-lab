@@ -34,6 +34,7 @@ apps-script/                Google Apps Script backend (Drive + Sheet + email)
 tools/                      profile resolver, vendored-library rebuild script
 tests/                      Node tests (slicer, loaders, backend with mocked Google services)
 vendor/                     three.js and Clipper, vendored so the page needs no CDN
+fonts/                      Abraham (Bezalel's typeface, by Daniel Grumer), web subset — used under Bezalel's license
 ```
 
 ---
@@ -198,6 +199,7 @@ No build step: the page is plain ES modules.
 ## Third-party code and data
 
 - [three.js](https://threejs.org) r186 — MIT
+- Abraham typeface by Daniel Grumer — Bezalel's licensed font, not for reuse outside this site
 - [Clipper](https://sourceforge.net/projects/jsclipper/) (JS port) 6.4.2 — Boost Software License
 - Base presets in `profiles/bambu-base/` are from [Bambu Studio](https://github.com/bambulab/BambuStudio) — AGPL-3.0
 - The gyroid wave generator follows PrusaSlicer/Bambu Studio's `FillGyroid` — AGPL-3.0

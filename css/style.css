@@ -1,3 +1,8 @@
+/* Bezalel's typeface, Abraham (Daniel Grumer), subset to Latin + Hebrew. 600 uses Bold. */
+@font-face { font-family: 'Abraham'; src: url('../fonts/abraham-regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Abraham'; src: url('../fonts/abraham-medium.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Abraham'; src: url('../fonts/abraham-bold.woff2') format('woff2'); font-weight: 600 700; font-display: swap; }
+
 :root {
   --green: #00ae42;
   --green-dark: #008a34;
@@ -20,7 +25,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
-  font-family: 'Rubik', 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
+  font-family: 'Abraham', 'Rubik', 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
   font-variant-numeric: lining-nums;
   color: var(--ink);
   background: var(--bg);
