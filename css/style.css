@@ -53,18 +53,19 @@ h2 .he, legend .he, .field label .he, .field .label .he, .kpi-label .he, .p-name
 main { max-width: 1600px; margin: 0 auto; padding: 16px; }
 
 /* ---------- workspace ---------- */
-/* Two setup columns next to the 3D view: 1 Models + 2 Print settings on the
-   left, 3 Orientation & size + Slice + Estimate in the middle. */
+/* Two setup columns left of the 3D view (1 Models + 2 Print settings,
+   3 Orientation & size + Slice), and the estimate on the right. */
 .workspace {
   display: grid;
-  grid-template-columns: 300px 290px minmax(0, 1fr);
-  grid-template-areas: "a b stage";
-  gap: 14px;
+  grid-template-columns: 268px 258px minmax(0, 1fr) 236px;
+  grid-template-areas: "a b stage est";
+  gap: 12px;
   align-items: start;
 }
 .col-a { grid-area: a; }
 .col-b { grid-area: b; }
 .stage { grid-area: stage; }
+.estimate { grid-area: est; }
 .panel { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px; }
 .step { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--line); }
 .step:last-of-type { border-bottom: 0; }
@@ -95,9 +96,10 @@ select:focus, input:focus, textarea:focus { outline: 2px solid var(--green); out
 .obj.selected { border-color: var(--green); background: var(--green-soft); }
 .obj.bad { border-color: var(--danger); }
 .obj-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.obj-meta { grid-column: 1; color: var(--ink-2); font-size: 12px; }
+.obj-meta { grid-column: 1 / -1; grid-row: 2; color: var(--ink-2); font-size: 12px; }
 .obj-meta .bad-note { color: var(--danger); font-weight: 500; }
-.obj-actions { grid-row: 1 / 3; grid-column: 2; display: flex; align-items: center; gap: 6px; }
+.obj-actions { grid-row: 1; grid-column: 2; display: flex; align-items: center; gap: 4px; }
+.obj-name { grid-row: 1; align-self: center; }
 .obj .stepper button { width: 26px; font-size: 15px; }
 .obj .stepper input { width: 34px; min-height: 28px; padding: 2px; }
 .icon-btn { border: 1px solid #c9d1d6; background: #fff; border-radius: 6px; height: 28px; min-width: 28px; padding: 0 6px; cursor: pointer; font-size: 12px; color: var(--ink-2); }
@@ -121,9 +123,19 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .profile input { margin: 0; accent-color: var(--green); flex: none; }
 .profile .p-name { font-weight: 600; font-size: 14px; min-width: 0; line-height: 1.2; }
 .profile .p-name .he { display: block; margin: 0; text-align: left; font-weight: 400; font-size: 12px; white-space: nowrap; }
-.profile-detail { background: #f6f7f8; border-radius: 8px; padding: 8px 10px; font-size: 12.5px; color: var(--ink-2); }
-.profile-detail .p-spec { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
-.profile-detail .he { font-size: 12.5px; }
+.profile { position: relative; }
+.p-tip {
+  display: none; position: absolute; z-index: 30; bottom: calc(100% + 8px); left: 0; width: 250px;
+  background: #1f2428; color: #fff; border-radius: 8px; padding: 9px 11px; font-size: 12.5px; line-height: 1.4;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .25); pointer-events: none;
+}
+.p-tip::after { content: ''; position: absolute; top: 100%; left: 18px; border: 6px solid transparent; border-top-color: #1f2428; }
+.profile-grid .profile:nth-child(even) .p-tip { left: auto; right: 0; }
+.profile-grid .profile:nth-child(even) .p-tip::after { left: auto; right: 18px; }
+.profile:hover .p-tip, .profile:focus-within .p-tip { display: block; }
+.p-tip .p-spec { display: block; font-weight: 600; margin-bottom: 3px; }
+.p-tip .p-desc { display: block; color: #e3e8eb; }
+.p-tip .he { color: #b8c2c8; font-size: 12px; margin-top: 3px; }
 .profile .p-desc .he { font-size: 12.5px; }
 
 .colors { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
@@ -141,7 +153,9 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 
 /* orientation */
 .orient-tools { display: grid; gap: 6px; }
-.tool-row { display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: 6px; }
+.tool-row { display: grid; grid-template-columns: 1.1fr 1.1fr 0.8fr; gap: 6px; }
+.tool-row .tool { font-size: 12.5px; padding: 6px 4px; line-height: 1.2; }
+.tool-row .tool .he { font-size: 11px; }
 .tool { border: 1px solid #c9d1d6; background: #fff; border-radius: 7px; padding: 6px 8px; cursor: pointer; font-size: 13px; }
 .tool:hover:not(:disabled) { border-color: var(--green); color: var(--green-dark); }
 .tool:disabled { opacity: .45; cursor: not-allowed; }
@@ -222,22 +236,22 @@ legend { font-weight: 500; font-size: 14px; margin-bottom: 6px; padding: 0; }
 .legend label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .legend label .he { color: var(--ink-3); }
 .legend input { margin: 0; accent-color: var(--green); }
-.legend .legend-title { font-weight: 600; margin-bottom: 4px; }
+.legend .legend-title { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 0; cursor: pointer; font: inherit; font-weight: 600; text-align: left; }
+.legend .legend-title::after { content: '▾'; margin-left: auto; color: var(--ink-3); }
+.legend.collapsed .legend-title { margin: 0; }
+.legend.collapsed .legend-title::after { content: '▸'; }
+.legend.collapsed table { display: none; }
 
 /* ---------- estimate ---------- */
-.estimate { border-top: 1px solid var(--line); padding: 10px 14px; background: #fafbfb; }
+.estimate { position: sticky; top: 12px; }
 .estimate-empty { color: var(--ink-3); font-size: 14px; }
-.estimate-empty .he { display: inline; margin-left: .5em; }
-#estimateBody { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-#estimateBody .kpi { margin: 0; padding: 6px 12px; }
-#estimateBody .kpi-value { font-size: 22px; line-height: 1.15; }
-.facts { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; flex: 1 1 260px; }
-.fact { display: flex; flex-direction: column; }
-.fact-label { color: var(--ink-3); font-size: 12px; }
-.fact-label .he { display: inline; margin-left: .35em; font-size: 11px; }
-.fact b { font-weight: 600; font-variant-numeric: tabular-nums; }
-#estimateBody .disclaimer { flex-basis: 100%; border: 0; padding: 0; margin: 0; font-size: 11.5px; }
-#estimateBody .disclaimer .he { display: inline; margin-left: .4em; }
+.estimate-empty .he { margin-top: 4px; }
+#estimateBody .kpi-value { font-size: 24px; line-height: 1.15; }
+.facts { display: grid; grid-template-columns: 1fr auto; gap: 5px 10px; font-size: 13px; margin: 10px 0; }
+.fact { display: contents; }
+.fact-label { color: var(--ink-2); }
+.fact-label .he { display: inline; margin-left: .35em; font-size: 11.5px; color: var(--ink-3); }
+.fact b { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .kpi { background: #f6f7f8; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
 .kpi.accent { background: var(--green-soft); }
 .kpi-label { font-size: 13px; color: var(--ink-2); }
@@ -275,16 +289,26 @@ dialog::backdrop { background: rgba(20, 26, 30, .45); }
 footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px 16px 24px; }
 
 /* ---------- responsive ---------- */
-@media (max-width: 1180px) {
-  /* 3D view on top, the two setup columns side by side underneath. */
-  .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "stage stage" "a b"; }
+@media (max-width: 1280px) {
+  /* Estimate moves under the 3D view; the two setup columns stay on the left. */
+  .workspace { grid-template-columns: 268px 258px minmax(0, 1fr); grid-template-areas: "a b stage" "a b est"; }
+  .stage { height: calc(100vh - 300px); min-height: 480px; }
+  .estimate { position: static; }
+  #estimateBody { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  #estimateBody[hidden] { display: none; }
+  #estimateBody .kpi { margin: 0; }
+  #estimateBody .facts, #estimateBody .disclaimer { grid-column: 1 / -1; }
+}
+@media (max-width: 1000px) {
+  /* 3D view and estimate on top, the two setup columns side by side underneath. */
+  .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "stage stage" "est est" "a b"; }
   .stage { position: static; height: auto; max-height: none; min-height: 0; }
   .viewer { flex: none; height: 60vh; min-height: 380px; }
   .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
   main { padding: 10px; }
-  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "a" "b"; }
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-areas: "stage" "est" "a" "b"; }
   .viewer { height: 56vh; min-height: 320px; }
   .legend { max-height: 45%; font-size: 11px; padding: 6px 8px; }
   .grid { grid-template-columns: minmax(0, 1fr); }
