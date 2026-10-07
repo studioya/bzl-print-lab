@@ -1,8 +1,8 @@
 {
-  "name": "BEZALEL GENERIC PLA STRONG",
+  "name": "Generic PLA Strong - Bezalel Modelling Center",
   "from": "User",
-  "inherits": "BEZALEL GENERIC PLA",
-  "filament_settings_id": "BEZALEL GENERIC PLA STRONG",
+  "inherits": "Generic PLA - Bezalel Modelling Center",
+  "filament_settings_id": "Generic PLA Strong - Bezalel Modelling Center",
   "compatible_printers": [
     "Bambu Lab P1S 0.4 nozzle",
     "BZL Bambu Lab P1S 0.4 nozzle"

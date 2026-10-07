@@ -12,8 +12,8 @@
   ],
   "initial_layer_print_height": "0.2",
   "internal_solid_infill_line_width": "0.48",
-  "layer_height": "0.12",
-  "name": "BEZALEL FABLAB FINE",
+  "layer_height": "0.18",
+  "name": "Normal - Bezalel Modelling Center",
   "outer_wall_line_width": "0.45",
   "prime_tower_brim_width": "5",
   "print_extruder_id": [
@@ -24,7 +24,7 @@
     "Direct Drive Standard",
     "Direct Drive High Flow"
   ],
-  "print_settings_id": "BEZALEL FABLAB FINE",
+  "print_settings_id": "Normal - Bezalel Modelling Center",
   "raft_first_layer_density": "100%",
   "seam_position": "nearest",
   "skeleton_infill_density": "5%",
@@ -44,5 +44,6 @@
     "20",
     "nil"
   ],
-  "elefant_foot_compensation": "0.1"
+  "elefant_foot_compensation": "0.1",
+  "support_threshold_angle": "38"
 }

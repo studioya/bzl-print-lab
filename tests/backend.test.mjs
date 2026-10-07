@@ -4,7 +4,7 @@ import { loadBackend } from './apps-script-mock.mjs';
 
 const details = { name: 'Dana Levi', idNumber: '012345678', email: 'dana@example.com', phone: '050-1234567',
   department: 'Industrial Design', course: 'Studio 2', deadline: '2026-11-01', notes: 'Please print soon', website: '' };
-const order = { files: ['part.stl', 'bracket.3mf'], profile: 'BEZALEL FABLAB NORMAL', profileLabel: 'Normal', color: 'Black', copies: 4,
+const order = { files: ['part.stl', 'bracket.3mf'], profile: 'Normal - Bezalel Modelling Center', profileLabel: 'Normal', color: 'Black', copies: 4,
   objects: [
     { name: 'part.stl', file: 'part.stl', copies: 3, sizeMm: '40 × 20 × 10', unitScale: 1, rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
     { name: 'bracket.3mf – part 2', file: 'bracket.3mf', copies: 1, sizeMm: '12 × 8 × 5', unitScale: 10, rotation: [1, 0, 0, 0, 0, -1, 0, 1, 0] },

@@ -16,7 +16,7 @@ export const CONFIG = {
 
   // Multiplies the slicer's time estimate. Tune by comparing with Bambu Studio
   // on real models (README → "Calibrating the time estimate").
-  // Per-profile values override the default, e.g. { 'BEZALEL FABLAB FINE': 1.05 }.
+  // Per-profile values override the default, e.g. { 'Fine - Bezalel Modelling Center': 1.05 }.
   timeCalibration: {
     default: 1.0,
     perProfile: {},
