@@ -250,6 +250,7 @@ function initControls() {
   $('sliceAllBtn').addEventListener('click', () => startSlice(true));
   $('addPlate').addEventListener('click', addPlate);
   $('arrangePlate').addEventListener('click', arrangeCurrentPlate);
+  $('centerPlate').addEventListener('click', centerCurrentPlate);
   $('arrangeAll').addEventListener('click', arrangeAllPlates);
   $('moveTo').addEventListener('change', (e) => {
     const v = e.target.value;
@@ -441,6 +442,22 @@ function arrangeCurrentPlate() {
   if (!state.plates[i]?.length) return;
   const out = arrangePieces(state.plates[i]);
   state.plates.splice(i, 1, ...out.slice(0, MAX_PLATES - state.plates.length + 1));
+  refresh({ reframe: true });
+}
+
+/** Moves the pieces on the plate shown, as a group, to the middle of the plate. */
+function centerCurrentPlate() {
+  const pl = state.plates[state.plateIndex];
+  if (!pl?.length) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pl) {
+    const s = objectByKey(p.key).oriented.size;
+    minX = Math.min(minX, p.x - s.x / 2); maxX = Math.max(maxX, p.x + s.x / 2);
+    minY = Math.min(minY, p.y - s.y / 2); maxY = Math.max(maxY, p.y + s.y / 2);
+  }
+  const dx = PLATE.width / 2 - (minX + maxX) / 2, dy = PLATE.depth / 2 - (minY + maxY) / 2;
+  if (Math.abs(dx) < 1e-6 && Math.abs(dy) < 1e-6) return;
+  for (const p of pl) { p.x += dx; p.y += dy; }
   refresh({ reframe: true });
 }
 
@@ -723,6 +740,7 @@ function renderPieceTools() {
     + state.plates.map((_, i) => `<option value="${i}"${i === from ? ' disabled' : ''}>Plate ${i + 1}</option>`).join('')
     + (state.plates.length < MAX_PLATES ? `<option value="new">New plate · משטח חדש</option>` : '');
   $('arrangePlate').disabled = !state.plates[state.plateIndex]?.length;
+  $('centerPlate').disabled = !state.plates[state.plateIndex]?.length;
   $('arrangeAll').disabled = !allPieces().length;
 }
 
@@ -789,7 +807,7 @@ function updatePlateView() {
 }
 
 const STAGE_LABEL = {
-  slice: ['Slicing layers', 'חיתוך שכבות'],
+  slice: ['Slicing layers', 'פריסת שכבות'],
   walls: ['Generating walls', 'יצירת דפנות'],
   shells: ['Top & bottom shells', 'מעטפות עליונות ותחתונות'],
   support: ['Supports', 'תמיכות'],
@@ -834,12 +852,12 @@ function startSlice(all) {
       onSliced(msg.result, job);
     } else if (msg.type === 'error') {
       console.error(msg.stack || msg.message);
-      fail(`Slicing failed: ${msg.message}`, 'החיתוך נכשל. נסו כיוון אחר או קובץ אחר.');
+      fail(`Slicing failed: ${msg.message}`, 'הפריסה נכשלה. נסו כיוון אחר או קובץ אחר.');
     }
   };
   worker.onerror = (e) => {
     console.error(e);
-    fail('Slicing failed in this browser. Try an up-to-date Chrome, Edge, Firefox or Safari.', 'החיתוך נכשל בדפדפן זה.');
+    fail('Slicing failed in this browser. Try an up-to-date Chrome, Edge, Firefox or Safari.', 'הפריסה נכשלה בדפדפן זה.');
   };
   worker.postMessage({
     id,
@@ -886,7 +904,7 @@ function renderEstimate() {
   $('estCost').textContent = money(t.cost);
   $('estRate').innerHTML = missing.length
     ? `<span class="est-missing">Plate ${missing.join(', ')} not sliced yet: press <b>Slice all plates</b> for the full total.
-        ${he(`משטח ${missing.join(', ')} עדיין לא נחתך: לחצו ״חיתוך כל המשטחים״ לסכום המלא.`)}</span>`
+        ${he(`משטח ${missing.join(', ')} עדיין לא נפרס: לחצו ״פריסת כל המשטחים״ לסכום המלא.`)}</span>`
     : `${t.minutes} min × ${money(CONFIG.pricePerMinute)} / min`;
   // Summary per plate, with the total across plates.
   const table = $('estPlates');
@@ -896,7 +914,7 @@ function renderEstimate() {
       <table>${used.map(({ index, result: r }) => `<tr class="${index === state.plateIndex ? 'current' : ''}">
         <td>Plate ${index + 1}</td>
         ${r ? `<td class="num-col">${fmtDuration(r.seconds)}</td><td class="num-col">${money(r.cost)}</td>`
-    : `<td class="num-col muted" colspan="2">not sliced · לא נחתך</td>`}</tr>`).join('')}
+    : `<td class="num-col muted" colspan="2">not sliced · לא נפרס</td>`}</tr>`).join('')}
         <tr class="total"><td>Total${he('סה״כ')}</td><td class="num-col">${fmtDuration(t.seconds)}</td><td class="num-col">${money(t.cost)}</td></tr>
       </table>`;
   }
