@@ -27,20 +27,20 @@ export const PRINTER = {
 };
 
 export const FILAMENTS = {
-  "BEZALEL GENERIC PLA": {
-    "name": "BEZALEL GENERIC PLA",
+  "Generic PLA - Bezalel Modelling Center": {
+    "name": "Generic PLA - Bezalel Modelling Center",
     "diameter": 1.75,
     "density": 1.24,
-    "maxVolumetricSpeed": 12,
+    "maxVolumetricSpeed": 15,
     "slowDownForLayerCooling": true,
     "slowDownLayerTime": 8,
     "slowDownMinSpeed": 20
   },
-  "BEZALEL GENERIC PLA STRONG": {
-    "name": "BEZALEL GENERIC PLA STRONG",
+  "Generic PLA Strong - Bezalel Modelling Center": {
+    "name": "Generic PLA Strong - Bezalel Modelling Center",
     "diameter": 1.75,
     "density": 1.24,
-    "maxVolumetricSpeed": 12,
+    "maxVolumetricSpeed": 15,
     "slowDownForLayerCooling": true,
     "slowDownLayerTime": 8,
     "slowDownMinSpeed": 20
@@ -49,7 +49,7 @@ export const FILAMENTS = {
 
 export const PROCESSES = [
   {
-    "name": "BEZALEL FABLAB DRAFT",
+    "name": "Draft - Bezalel Modelling Center",
     "layerHeight": 0.24,
     "firstLayerHeight": 0.2,
     "wallLoops": 2,
@@ -129,7 +129,7 @@ export const PROCESSES = [
     }
   },
   {
-    "name": "BEZALEL FABLAB NORMAL",
+    "name": "Normal - Bezalel Modelling Center",
     "layerHeight": 0.18,
     "firstLayerHeight": 0.2,
     "wallLoops": 2,
@@ -209,7 +209,7 @@ export const PROCESSES = [
     }
   },
   {
-    "name": "BEZALEL FABLAB FINE",
+    "name": "Fine - Bezalel Modelling Center",
     "layerHeight": 0.12,
     "firstLayerHeight": 0.2,
     "wallLoops": 2,
@@ -289,7 +289,7 @@ export const PROCESSES = [
     }
   },
   {
-    "name": "BEZALEL FABLAB STRONG",
+    "name": "Strong - Bezalel Modelling Center",
     "layerHeight": 0.16,
     "firstLayerHeight": 0.2,
     "wallLoops": 4,
@@ -369,11 +369,11 @@ export const PROCESSES = [
     }
   },
   {
-    "name": "BEZALEL FABLAB HYDRAULIC PRESS",
+    "name": "Press - Bezalel Modelling Center",
     "layerHeight": 0.24,
     "firstLayerHeight": 0.2,
     "wallLoops": 4,
-    "topShellLayers": 4,
+    "topShellLayers": 0,
     "topShellThickness": 1,
     "bottomShellLayers": 4,
     "bottomShellThickness": 0,
@@ -449,7 +449,7 @@ export const PROCESSES = [
     }
   },
   {
-    "name": "BEZALEL FABLAB LOST PLA",
+    "name": "Lost PLA - Bezalel Modelling Center",
     "layerHeight": 0.12,
     "firstLayerHeight": 0.2,
     "wallLoops": 2,
@@ -529,7 +529,7 @@ export const PROCESSES = [
     }
   },
   {
-    "name": "BEZALEL FABLAB POUR MOLD",
+    "name": "Pour Mold - Bezalel Modelling Center",
     "layerHeight": 0.12,
     "firstLayerHeight": 0.2,
     "wallLoops": 4,

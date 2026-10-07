@@ -14,19 +14,20 @@ import { toBinarySTL, orientMesh, alignRotation, autoOrient, splitComponents } f
 import { build3MF } from '../js/export3mf.js';
 import * as fx from './fixtures.mjs';
 
-const NORMAL = PROCESSES.find((p) => p.name === 'BEZALEL FABLAB NORMAL');
-const PLA = FILAMENTS['BEZALEL GENERIC PLA'];
+const NORMAL = PROCESSES.find((p) => p.name === 'Normal - Bezalel Modelling Center');
+const PLA = FILAMENTS['Generic PLA - Bezalel Modelling Center'];
 
 test('profiles: all 7 lab presets resolved with their key settings', () => {
   assert.equal(PROCESSES.length, 7);
   const byName = Object.fromEntries(PROCESSES.map((p) => [p.name, p]));
-  assert.equal(byName['BEZALEL FABLAB DRAFT'].layerHeight, 0.24);
-  assert.equal(byName['BEZALEL FABLAB FINE'].layerHeight, 0.12);
-  assert.equal(byName['BEZALEL FABLAB STRONG'].wallLoops, 4);
-  assert.equal(byName['BEZALEL FABLAB STRONG'].sparseInfillDensity, 0.28);
-  assert.equal(byName['BEZALEL FABLAB LOST PLA'].sparseInfillDensity, 0.03);
-  assert.equal(byName['BEZALEL FABLAB NORMAL'].support.thresholdAngle, 38);
-  assert.equal(PLA.maxVolumetricSpeed, 12);
+  assert.equal(byName['Draft - Bezalel Modelling Center'].layerHeight, 0.24);
+  assert.equal(byName['Fine - Bezalel Modelling Center'].layerHeight, 0.12);
+  assert.equal(byName['Strong - Bezalel Modelling Center'].wallLoops, 4);
+  assert.equal(byName['Strong - Bezalel Modelling Center'].sparseInfillDensity, 0.28);
+  assert.equal(byName['Lost PLA - Bezalel Modelling Center'].sparseInfillDensity, 0.03);
+  assert.equal(byName['Normal - Bezalel Modelling Center'].support.thresholdAngle, 38);
+  assert.equal(PLA.maxVolumetricSpeed, 15);
+  assert.equal(byName['Press - Bezalel Modelling Center'].topShellLayers, 0);
   for (const p of PROCESSES) assert.ok(PROFILE_INFO[p.name], `description for ${p.name}`);
 });
 
@@ -70,6 +71,21 @@ test('cube: no supports, plausible time and filament', () => {
   assert.ok(est.grams > 2 && est.grams < 5, `grams ${est.grams}`);
 });
 
+test('Press profile leaves the top open; other profiles close it', () => {
+  const cube = fx.f32(fx.box(20, 20, 20, -10, -10, 0));
+  const solidTypes = new Set([3, 4]); // internal solid, top surface
+  const topSolid = (name) => {
+    const obj = sliceObject(cube, PROCESSES.find((p) => p.name === name));
+    return obj.layers.slice(-6).map((l) => l.paths.some((p) => solidTypes.has(p.t)));
+  };
+  assert.deepEqual(topSolid('Press - Bezalel Modelling Center'), [false, false, false, false, false, false]);
+  assert.ok(topSolid('Normal - Bezalel Modelling Center').at(-1), 'Normal closes the top');
+  // Press still has a solid bottom.
+  const press = sliceObject(cube, PROCESSES.find((p) => p.name === 'Press - Bezalel Modelling Center'));
+  assert.ok(press.layers[0].paths.some((p) => p.t === 5), 'bottom surface on the first layer');
+  assert.ok(press.layers[2].paths.some((p) => p.t === 3), 'solid bottom shell');
+});
+
 test('cantilever needs support; supports are only built from the plate', () => {
   const obj = sliceObject(fx.f32(fx.tee()), NORMAL);
   assert.equal(obj.hasSupport, true);
@@ -92,8 +108,8 @@ test('finer profiles take longer', () => {
     const p = PROCESSES.find((x) => x.name === name);
     return estimatePlate([{ obj: sliceObject(pos, p), x: 0, y: 0 }], p, PLA, PRINTER).seconds;
   };
-  assert.ok(t('BEZALEL FABLAB FINE') > t('BEZALEL FABLAB NORMAL'));
-  assert.ok(t('BEZALEL FABLAB NORMAL') > t('BEZALEL FABLAB DRAFT'));
+  assert.ok(t('Fine - Bezalel Modelling Center') > t('Normal - Bezalel Modelling Center'));
+  assert.ok(t('Normal - Bezalel Modelling Center') > t('Draft - Bezalel Modelling Center'));
 });
 
 test('preview buffer has one entry per segment and per-layer offsets', () => {

@@ -123,7 +123,7 @@ will differ somewhat. To calibrate:
    (not including the prepare time).
 3. Slice the same file, same orientation and profile on the page and note its time.
 4. Average the ratio *Bambu ÷ page* and put it in `timeCalibration.default`. If one profile is
-   consistently off, add it to `perProfile`, e.g. `{ 'BEZALEL FABLAB FINE': 1.08 }`.
+   consistently off, add it to `perProfile`, e.g. `{ 'Fine - Bezalel Modelling Center': 1.08 }`.
 
 ## Updating the printing profiles
 
@@ -158,7 +158,7 @@ preset values:
   trunks as they go down.
 - **Brim:** outer and inner, 5 mm.
 - **Time:** a trapezoidal motion planner with Bambu's per-feature speeds and accelerations,
-  classic jerk at corners, the filament's max volumetric speed (12 mm³/s for generic PLA), the
+  classic jerk at corners, the filament's max volumetric speed (15 mm³/s for the lab's generic PLA), the
   20 mm/s first layer, overhang slowdowns, retractions, and the minimum layer time for cooling
   (8 s, down to 20 mm/s).
 - **Sliced per plate:** all objects and their copies are packed onto as few plates as needed and

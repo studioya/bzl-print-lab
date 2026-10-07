@@ -1,5 +1,5 @@
 {
-  "bottom_shell_layers": "4",
+  "bottom_shell_layers": "3",
   "brim_object_gap": "0.05",
   "brim_type": "outer_and_inner",
   "detect_thin_wall": "1",
@@ -12,8 +12,8 @@
   ],
   "initial_layer_print_height": "0.2",
   "internal_solid_infill_line_width": "0.48",
-  "layer_height": "0.24",
-  "name": "BEZALEL FABLAB HYDRAULIC PRESS",
+  "layer_height": "0.12",
+  "name": "Lost PLA - Bezalel Modelling Center",
   "outer_wall_line_width": "0.45",
   "prime_tower_brim_width": "5",
   "print_extruder_id": [
@@ -24,16 +24,16 @@
     "Direct Drive Standard",
     "Direct Drive High Flow"
   ],
-  "print_settings_id": "BEZALEL FABLAB HYDRAULIC PRESS",
+  "print_settings_id": "Lost PLA - Bezalel Modelling Center",
   "raft_first_layer_density": "100%",
-  "seam_position": "nearest",
-  "skeleton_infill_density": "12%",
-  "skin_infill_density": "12%",
-  "sparse_infill_density": "12%",
+  "seam_position": "aligned",
+  "skeleton_infill_density": "3%",
+  "skin_infill_density": "3%",
+  "sparse_infill_density": "3%",
   "sparse_infill_pattern": "gyroid",
   "support_on_build_plate_only": "1",
   "top_one_wall_type": "not apply",
-  "top_shell_layers": "4",
+  "top_shell_layers": "3",
   "top_surface_speed": [
     "150",
     "nil"
@@ -45,5 +45,6 @@
     "nil"
   ],
   "elefant_foot_compensation": "0.1",
-  "wall_loops": "4"
+  "wall_loops": "2",
+  "seam_slope_type": "external"
 }

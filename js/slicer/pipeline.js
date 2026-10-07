@@ -83,21 +83,27 @@ export function sliceObject(positions, proc, onProgress = () => {}) {
   }
 
   // ---- Top / bottom shells and infill regions ----
-  const topLayers = Math.max(proc.topShellLayers, Math.ceil(proc.topShellThickness / proc.layerHeight - 1e-6));
-  const bottomLayers = Math.max(proc.bottomShellLayers, Math.ceil((proc.bottomShellThickness || 0) / proc.layerHeight - 1e-6));
+  // Like Bambu Studio, the minimum shell thickness only adds layers when the
+  // profile has shell layers at all: 0 top layers means an open top.
+  const shellCount = (layers, thickness) =>
+    layers > 0 ? Math.max(layers, Math.ceil((thickness || 0) / proc.layerHeight - 1e-6)) : 0;
+  const topLayers = shellCount(proc.topShellLayers, proc.topShellThickness);
+  const bottomLayers = shellCount(proc.bottomShellLayers, proc.bottomShellThickness);
   const regions = new Array(n);
   for (let i = 0; i < n; i++) {
     const F_i = fill[i];
     if (!F_i.length) { regions[i] = null; continue; }
     // Same shells as the layer below if everything within the shell window matches.
     if (i > 1 && allSame(i - bottomLayers, i + topLayers) && regions[i - 1]) { regions[i] = regions[i - 1]; continue; }
-    // Area covered by every one of the next `topLayers` layers.
-    let above = i + 1 < n ? slices[i + 1] : [];
-    for (let k = 2; k <= topLayers && above.length; k++) above = i + k < n ? intersect(above, slices[i + k]) : [];
-    let belowAll = i - 1 >= 0 ? slices[i - 1] : [];
-    for (let k = 2; k <= bottomLayers && belowAll.length; k++) belowAll = i - k >= 0 ? intersect(belowAll, slices[i - k]) : [];
-
-    let solid = union(diff(F_i, above), diff(F_i, belowAll));
+    // Areas within `topLayers` of a top surface / `bottomLayers` of a bottom
+    // surface (i.e. not covered by every one of those layers) become solid.
+    const shell = (count, step) => {
+      if (count <= 0) return [];
+      let covered = slices[i + step] || [];
+      for (let k = 2; k <= count && covered.length; k++) covered = slices[i + k * step] ? intersect(covered, slices[i + k * step]) : [];
+      return diff(F_i, covered);
+    };
+    let solid = union(shell(topLayers, 1), shell(bottomLayers, -1));
     solid = dropSmall(opening(solid, 0.1), 0.1);
     let sparse = diff(F_i, solid);
     // Bambu turns small sparse areas into solid infill (minimum_sparse_infill_area).
@@ -113,6 +119,7 @@ export function sliceObject(positions, proc, onProgress = () => {}) {
     let top = [], bridge = [], internal = [], bottom = [];
     if (i === 0) {
       bottom = solid;
+      if (bottomLayers === 0) { sparse = union(sparse, solid); bottom = []; }
     } else {
       const exposed = i + 1 < n ? diff(F_i, slices[i + 1]) : F_i;
       top = exposed.length ? dropSmall(intersect(solid, offset(exposed, 0.2)), 0.1) : [];

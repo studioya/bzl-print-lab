@@ -521,7 +521,7 @@ function startSlice() {
     id: job,
     objects: state.objects.map((o) => ({ key: o.key, positions: o.oriented.positions })),
     processName: proc.name,
-    filamentName: info.filament || 'BEZALEL GENERIC PLA',
+    filamentName: info.filament || 'Generic PLA - Bezalel Modelling Center',
     plates: state.plates,
   });
 }
