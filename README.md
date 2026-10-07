@@ -12,9 +12,9 @@ A single web page where students:
    drag pieces around, add plates (*+ Plate*), move a piece to another plate, delete a plate, or press
    *Arrange* (this plate) / *Arrange all* (re-pack everything onto as few plates as possible).
    Pieces that overlap or stick out of the plate turn red and block slicing,
-6. **slice in the browser**: *Slice this plate* or *Slice all plates* (each plate's result is kept
-   until that plate changes; submitting needs every plate sliced). The estimate shows the total across
-   all plates and the time and cost of each plate, and get a Bambu-style toolpath preview plus a **time and cost estimate**,
+6. **slice in the browser** with *Slice this plate* or *Slice all plates* and get a Bambu-style
+   toolpath preview plus a **time and cost estimate**: the total across all plates and each plate's
+   time and cost. A plate's result is kept until that plate changes; submitting needs every plate sliced,
 7. fill in their details and **submit**. The model lands in the lab's Google Drive folder
    `STUDENT 3D SUBMISSIONS`, the details go into a Google Sheet with a Status column, and the
    student gets a confirmation email.
