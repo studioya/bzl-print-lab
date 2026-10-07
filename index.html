@@ -110,9 +110,14 @@
           <div class="fit" id="fitStatus" hidden></div>
         </div>
 
-        <button type="button" class="primary big" id="sliceBtn" disabled>
-          Slice plate <span class="he" lang="he" dir="rtl">חיתוך (Slice)</span>
-        </button>
+        <div class="slice-btns">
+          <button type="button" class="secondary big" id="sliceBtn" disabled>
+            Slice this plate <span class="he" lang="he" dir="rtl">חיתוך משטח זה</span>
+          </button>
+          <button type="button" class="primary big" id="sliceAllBtn" disabled>
+            Slice all plates <span class="he" lang="he" dir="rtl">חיתוך כל המשטחים</span>
+          </button>
+        </div>
         <div class="progress" id="sliceProgress" hidden>
           <div class="bar"><span id="sliceBar"></span></div>
           <div class="progress-label" id="sliceLabel"></div>
@@ -126,11 +131,20 @@
         </div>
         <div class="plate-bar" id="plateBar" hidden>
           <div class="plate-tabs" id="plateTabs"></div>
-          <button type="button" class="plate-add" id="addPlate" title="Add an empty plate · הוספת משטח">+ Plate <span class="he" lang="he" dir="rtl">משטח</span></button>
+          <span class="has-tip ">
+            <button type="button" class="plate-add" id="addPlate">+ Plate <span class="he" lang="he" dir="rtl">משטח</span></button>
+            <span class="p-tip" role="tooltip"><span class="p-spec">Add a plate</span><span class="p-desc">Adds an empty build plate. Move pieces onto it with “Move piece to…”.<span class="he" lang="he" dir="rtl"><b>הוספת משטח.</b> מוסיף משטח הדפסה ריק. העבירו אליו חלקים עם ״העברה ל…״.</span></span></span>
+          </span>
           <div class="plate-tools">
             <select id="moveTo" aria-label="Move the selected piece to another plate"></select>
-            <button type="button" class="icon-btn" id="arrangePlate" title="Arrange the pieces on this plate automatically · סידור אוטומטי של המשטח הזה">Arrange <span class="he" lang="he" dir="rtl">סידור</span></button>
-            <button type="button" class="icon-btn" id="arrangeAll" title="Re-pack every piece onto as few plates as possible · סידור כל החלקים על כמה שפחות משטחים">Arrange all <span class="he" lang="he" dir="rtl">סידור הכול</span></button>
+  <span class="has-tip tip-below tip-right">
+            <button type="button" class="icon-btn" id="arrangePlate">Arrange <span class="he" lang="he" dir="rtl">סידור</span></button>
+            <span class="p-tip" role="tooltip"><span class="p-spec">Arrange this plate</span><span class="p-desc">Packs the pieces on this plate automatically, with room for brims. Pieces that don’t fit move to a new plate.<span class="he" lang="he" dir="rtl"><b>סידור המשטח הזה.</b> מסדר את החלקים במשטח באופן אוטומטי, עם מרווח לשוליים. חלקים שלא נכנסים עוברים למשטח חדש.</span></span></span>
+          </span>
+  <span class="has-tip tip-below tip-right">
+            <button type="button" class="icon-btn" id="arrangeAll">Arrange all <span class="he" lang="he" dir="rtl">סידור הכול</span></button>
+            <span class="p-tip" role="tooltip"><span class="p-spec">Arrange all plates</span><span class="p-desc">Re-packs every piece on every plate onto as few plates as possible. Your own placement is replaced.<span class="he" lang="he" dir="rtl"><b>סידור כל המשטחים.</b> מסדר מחדש את כל החלקים על כמה שפחות משטחים. הסידור הידני שלכם יוחלף.</span></span></span>
+          </span>
           </div>
           <div class="plate-hint">Drag a piece to move it. <span class="he" lang="he" dir="rtl">גררו חלק כדי להזיז אותו.</span></div>
         </div>
@@ -165,6 +179,7 @@
           <span class="he" lang="he" dir="rtl">בצעו חיתוך (Slice) כדי לראות את זמן ההדפסה והעלות.</span>
         </div>
         <div id="estimateBody" hidden>
+          <div class="kpi-tag" id="estTotalLabel" hidden>All plates <span class="he" lang="he" dir="rtl">כל המשטחים</span></div>
           <div class="kpi">
             <div class="kpi-label">Print time <span class="he" lang="he" dir="rtl">זמן הדפסה</span></div>
             <div class="kpi-value" id="estTime">–</div>
@@ -174,6 +189,7 @@
             <div class="kpi-value" id="estCost">–</div>
             <div class="kpi-sub" id="estRate"></div>
           </div>
+          <div class="est-plates" id="estPlates" hidden></div>
           <div class="facts" id="estFacts"></div>
           <p class="disclaimer">Estimate only: the lab sets the final time and cost after slicing in Bambu Studio.
             <span class="he" lang="he" dir="rtl">הערכה בלבד: המעבדה תקבע את הזמן והעלות הסופיים לאחר חיתוך ב־Bambu Studio.</span></p>
@@ -243,8 +259,8 @@
             <button type="button" class="dismiss" id="submitStatusDismiss" hidden aria-label="Dismiss message" title="Dismiss · סגירה">✕</button>
           </div>
         </div>
-        <p class="hint" id="submitHint">Upload and slice your model to enable submission.
-          <span class="he" lang="he" dir="rtl">העלו את המודל ובצעו חיתוך כדי לאפשר שליחה.</span></p>
+        <p class="hint" id="submitHint">Upload your model and slice all plates to enable submission.
+          <span class="he" lang="he" dir="rtl">העלו את המודל ובצעו חיתוך לכל המשטחים כדי לאפשר שליחה.</span></p>
       </form>
     </section>
   </main>
