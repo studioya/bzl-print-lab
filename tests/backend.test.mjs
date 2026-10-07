@@ -7,7 +7,7 @@ const details = { name: 'Dana Levi', idNumber: '012345678', email: 'dana@example
 const order = { files: ['part.stl', 'bracket.3mf'], profile: 'Normal - Bezalel Modelling Center', profileLabel: 'Normal', color: 'Black', copies: 4,
   objects: [
     { name: 'part.stl', file: 'part.stl', copies: 3, sizeMm: '40 × 20 × 10', unitScale: 1, rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
-    { name: 'bracket.3mf – part 2', file: 'bracket.3mf', copies: 1, sizeMm: '12 × 8 × 5', unitScale: 10, rotation: [1, 0, 0, 0, 0, -1, 0, 1, 0] },
+    { name: 'bracket.3mf – part 2', file: 'bracket.3mf', copies: 1, sizeMm: '12 × 8 × 5', unitScale: 10, scalePercent: 150, rotation: [1, 0, 0, 0, 0, -1, 0, 1, 0] },
   ],
   plates: 1, estimatedMinutes: 95, estimatedCost: 47.5, filamentGrams: 31.2, supports: true, secondsOnPage: 60 };
 
@@ -33,13 +33,13 @@ test('begin → file → finish stores files, logs the row and emails the studen
   assert.equal(b.sheetRows[1][2], 'New');
   assert.match(b.sheetRows[1][19], /ORIGINAL – part\.stl\nORIGINAL – bracket\.3mf\nORIENTED – oriented-plate\.3mf/);
   assert.equal(b.sheetRows[1][10], 4, 'pieces in total');
-  assert.equal(b.sheetRows[1][17], 'part.stl ×3 (40 × 20 × 10)\nbracket.3mf – part 2 ×1 (12 × 8 × 5)');
+  assert.equal(b.sheetRows[1][17], 'part.stl ×3 (40 × 20 × 10)\nbracket.3mf – part 2 ×1 (12 × 8 × 5) scaled 150%');
   assert.equal(b.mails.length, 1);
   assert.equal(b.mails[0][0], 'dana@example.com');
   const names = b.drive.files.filter((f) => f.folder === sub).map((f) => f.name);
   assert.equal(names.length, 4); // details.txt + 2 originals + oriented 3MF
   const txt = b.drive.files.find((f) => f.folder === sub && f.name.endsWith('details.txt')).content;
-  assert.match(txt, /bracket\.3mf – part 2 ×1 — 12 × 8 × 5 mm, from bracket\.3mf, scaled ×10/);
+  assert.match(txt, /bracket\.3mf – part 2 ×1 — 12 × 8 × 5 mm, from bracket\.3mf, file units ×10, resized to 150%/);
 });
 
 test('newest submission goes on top', () => {
