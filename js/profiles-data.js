@@ -126,7 +126,8 @@ export const PROCESSES = [
       "baseSpacing": 2.5,
       "treeBranchDiameter": 2,
       "treeBranchAngle": 60
-    }
+    },
+    "label": "Draft"
   },
   {
     "name": "Normal - Bezalel Modelling Center",
@@ -206,7 +207,8 @@ export const PROCESSES = [
       "baseSpacing": 2.5,
       "treeBranchDiameter": 2,
       "treeBranchAngle": 60
-    }
+    },
+    "label": "Normal"
   },
   {
     "name": "Fine - Bezalel Modelling Center",
@@ -286,7 +288,8 @@ export const PROCESSES = [
       "baseSpacing": 2.5,
       "treeBranchDiameter": 2,
       "treeBranchAngle": 60
-    }
+    },
+    "label": "Fine"
   },
   {
     "name": "Strong - Bezalel Modelling Center",
@@ -366,7 +369,8 @@ export const PROCESSES = [
       "baseSpacing": 2.5,
       "treeBranchDiameter": 2,
       "treeBranchAngle": 60
-    }
+    },
+    "label": "Strong"
   },
   {
     "name": "Press - Bezalel Modelling Center",
@@ -446,7 +450,8 @@ export const PROCESSES = [
       "baseSpacing": 2.5,
       "treeBranchDiameter": 2,
       "treeBranchAngle": 60
-    }
+    },
+    "label": "Press"
   },
   {
     "name": "Lost PLA - Bezalel Modelling Center",
@@ -526,7 +531,8 @@ export const PROCESSES = [
       "baseSpacing": 2.5,
       "treeBranchDiameter": 2,
       "treeBranchAngle": 60
-    }
+    },
+    "label": "Lost PLA"
   },
   {
     "name": "Pour Mold - Bezalel Modelling Center",
@@ -606,6 +612,7 @@ export const PROCESSES = [
       "baseSpacing": 2.5,
       "treeBranchDiameter": 2,
       "treeBranchAngle": 60
-    }
+    },
+    "label": "Pour Mold"
   }
 ];

@@ -174,7 +174,9 @@ function begin_(req) {
     department: v.department, course: v.course, deadline: v.deadline,
     copies: v.copies, color: v.color, profile: v.profileLabel,
     estMinutes: v.estMinutes, estCost: v.estCost, plates: v.plates, grams: v.grams,
-    objects: v.objects.map(function (o) { return o.name + ' ×' + o.copies + ' (' + o.size + ')'; }).join('\n'),
+    objects: v.objects.map(function (o) {
+      return o.name + ' ×' + o.copies + ' (' + o.size + ')' + (o.scalePercent !== 100 ? ' scaled ' + o.scalePercent + '%' : '');
+    }).join('\n'),
     supports: v.supports ? 'Yes' : 'No',
     files: '', folder: '', notes: v.notes, labNotes: '',
   };
@@ -285,6 +287,7 @@ function validate_(d, o) {
         copies: Math.round(+x.copies),
         size: str(x.sizeMm, 40),
         unitScale: +x.unitScale || 1,
+        scalePercent: Math.min(1000, Math.max(1, +x.scalePercent || 100)),
         rotation: Array.isArray(x.rotation) ? x.rotation.slice(0, 9).map(Number) : null,
       };
     }),
@@ -351,11 +354,12 @@ function summaryText_(row, v) {
     'Objects (size in mm as oriented):',
   ].concat(v.objects.map(function (o) {
     return '  • ' + o.name + ' ×' + o.copies + ' — ' + o.size + ' mm, from ' + o.file +
-      (o.unitScale !== 1 ? ', scaled ×' + o.unitScale + ' (file units)' : '') +
+      (o.unitScale !== 1 ? ', file units ×' + o.unitScale : '') +
+      (o.scalePercent !== 100 ? ', resized to ' + o.scalePercent + '%' : '') +
       ', rotation ' + JSON.stringify(o.rotation);
   })).concat([
-    '  The "ORIENTED" 3MF in this folder has every object once, already rotated as the',
-    '  student chose: open it in Bambu Studio, set the copies and arrange.',
+    '  The "ORIENTED" 3MF in this folder has every object once, already rotated and resized',
+    '  as the student chose: open it in Bambu Studio, set the copies and arrange.',
     '',
     'Notes:',
     row.notes || '-',

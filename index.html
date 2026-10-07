@@ -36,7 +36,10 @@
             <span class="dz-hint">Max <span data-max-mb>25</span> MB per file
               <span class="he" lang="he" dir="rtl">עד <span data-max-mb>25</span> MB לקובץ</span></span>
           </label>
-          <p class="error" id="loadError" role="alert" hidden></p>
+          <div class="error dismissable" id="loadError" role="alert" hidden>
+            <div class="msg" id="loadErrorMsg"></div>
+            <button type="button" class="dismiss" data-dismiss="loadError" aria-label="Dismiss message" title="Dismiss · סגירה">✕</button>
+          </div>
           <ul class="object-list" id="objectList" aria-label="Objects on the plate"></ul>
           <div class="selected-panel" id="selectedPanel" hidden>
             <div class="units-row">
@@ -69,7 +72,7 @@
 
         <!-- 3. Orientation -->
         <div class="step">
-          <h2><span class="num">3</span> Orientation <span class="he" lang="he" dir="rtl">כיוון ההדפסה</span></h2>
+          <h2><span class="num">3</span> Orientation &amp; size <span class="he" lang="he" dir="rtl">כיוון וגודל</span></h2>
           <p class="orient-target" id="orientTarget">Select an object to orient it.
             <span class="he" lang="he" dir="rtl">בחרו אובייקט כדי לכוון אותו.</span></p>
           <p class="hint">Orientation changes supports, strength and time.
@@ -89,6 +92,20 @@
               <button type="button" class="tool" data-rot="z:45" disabled>↻ 45°</button>
             </div>
             <button type="button" class="tool wide subtle" id="resetOrient" disabled>Reset <span class="he" lang="he" dir="rtl">איפוס</span></button>
+          </div>
+          <div class="size-tools" id="sizeTools" hidden>
+            <div class="scale-row">
+              <label for="scalePct">Scale <span class="he" lang="he" dir="rtl">קנה מידה</span></label>
+              <div class="unit-input"><input type="number" id="scalePct" min="1" max="1000" step="1" inputmode="decimal"><span>%</span></div>
+            </div>
+            <div class="size-grid" role="group" aria-label="Size in millimetres">
+              <span class="size-label">Size (mm) <span class="he" lang="he" dir="rtl">מידות (מ״מ)</span></span>
+              <label class="axis-input"><span class="axis x">X</span><input type="number" id="sizeX" min="0.1" step="0.1" inputmode="decimal"></label>
+              <label class="axis-input"><span class="axis y">Y</span><input type="number" id="sizeY" min="0.1" step="0.1" inputmode="decimal"></label>
+              <label class="axis-input"><span class="axis z">Z</span><input type="number" id="sizeZ" min="0.1" step="0.1" inputmode="decimal"></label>
+            </div>
+            <p class="hint">Scaling keeps the proportions. <span class="he" lang="he" dir="rtl">שינוי הגודל שומר על הפרופורציות.</span></p>
+            <button type="button" class="tool wide" id="fitToPlate" hidden>Scale to fit the plate <span class="he" lang="he" dir="rtl">הקטנה כך שייכנס למשטח</span></button>
           </div>
           <div class="fit" id="fitStatus" hidden></div>
         </div>
@@ -212,7 +229,10 @@
         </div>
         <div class="submit-row">
           <button type="submit" class="primary big" id="submitBtn" disabled>Submit for printing <span class="he" lang="he" dir="rtl">שליחה להדפסה</span></button>
-          <div class="submit-status" id="submitStatus" role="status"></div>
+          <div class="submit-status" id="submitStatus" role="status">
+            <span class="msg" id="submitStatusMsg"></span>
+            <button type="button" class="dismiss" id="submitStatusDismiss" hidden aria-label="Dismiss message" title="Dismiss · סגירה">✕</button>
+          </div>
         </div>
         <p class="hint" id="submitHint">Upload and slice your model to enable submission.
           <span class="he" lang="he" dir="rtl">העלו את המודל ובצעו חיתוך כדי לאפשר שליחה.</span></p>
@@ -244,7 +264,7 @@
         if (window.__printLabReady || shown) return;
         shown = true;
         var el = document.getElementById('fatal');
-        el.innerHTML = '<strong>This page could not start in your browser.</strong> Please use an up-to-date Chrome, Edge, Firefox or Safari. ' +
+        el.innerHTML = '<button type="button" class="dismiss" aria-label="Dismiss message" onclick="this.parentNode.hidden=true">✕</button><strong>This page could not start in your browser.</strong> Please use an up-to-date Chrome, Edge, Firefox or Safari. ' +
           '<span class="he" lang="he" dir="rtl">הדף לא הצליח לעלות בדפדפן זה. נא להשתמש בגרסה עדכנית של Chrome, Edge, Firefox או Safari.</span>' +
           '<small>Technical details for the lab: </small>';
         var d = document.createElement('code');

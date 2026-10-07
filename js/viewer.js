@@ -289,6 +289,13 @@ export class Viewer {
           ${FEATURES.map((f, i) => `if (ti == ${i}) c = uColors[${i}];`).join('\n          ')}
           vColor = c * light;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(xy, z, 1.0);
+          // Segments overlap where they join (each is extended by half a line
+          // width so corners look solid), and pieces of different line types
+          // meet end to end. Identical overlapping surfaces would flicker, so
+          // give every segment a tiny, fixed depth priority: by line type, and
+          // alternating between consecutive segments.
+          float rank = t * 2.0 + float(gl_InstanceID % 2);
+          gl_Position.z -= rank * 3.0e-7 * gl_Position.w;
         }`,
       fragmentShader: `
         varying vec3 vColor;

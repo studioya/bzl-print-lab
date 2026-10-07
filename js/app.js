@@ -66,6 +66,7 @@ function newObject(fileId, name, source, from = null) {
     name,
     source,                         // Float32Array as loaded (file units)
     unitScale: from ? from.unitScale : 1,
+    scale: from ? from.scale : 1,   // student's resize (uniform), on top of the file units
     R: from ? from.R.slice() : IDENTITY3.slice(),
     copies: from ? from.copies : 1,
     oriented: null,                 // { positions, size }
@@ -77,7 +78,7 @@ function newObject(fileId, name, source, from = null) {
 }
 
 function orient(o) {
-  o.oriented = orientMesh(o.source, o.R, o.unitScale);
+  o.oriented = orientMesh(o.source, o.R, o.unitScale * o.scale);
   o.fits = fitsPlate(o.oriented.size);
   o.version++;
 }
@@ -86,19 +87,20 @@ const objectByKey = (key) => state.objects.find((o) => o.key === key);
 const selectedObject = () => objectByKey(state.selected);
 const totalCopies = () => state.objects.reduce((s, o) => s + o.copies, 0);
 function currentProcess() { return PROCESSES.find((p) => p.name === state.profile); }
+function profileLabel(name) { return PROCESSES.find((p) => p.name === name)?.label || name; }
 
 // ---------------------------------------------------------------- setup UI
 
 function initProfiles() {
   const fs = $('profiles');
   for (const p of PROCESSES) {
-    const info = PROFILE_INFO[p.name] || { en: p.name, he: '', descEn: '', descHe: '' };
+    const info = PROFILE_INFO[p.name] || { he: '', descEn: '', descHe: '' };
     const label = document.createElement('label');
     label.className = 'profile';
     const spec = `${p.layerHeight} mm · ${Math.round(p.sparseInfillDensity * 100)}% · ${p.wallLoops} walls`;
     label.innerHTML = `
       <input type="radio" name="profile" value="${p.name}">
-      <span class="p-name">${info.en}${he(info.he)}</span>
+      <span class="p-name">${p.label}${he(info.he || '')}</span>
       <span class="p-spec">${spec}</span>
       <span class="p-desc">${info.descEn}${he(info.descHe)}</span>`;
     const input = label.querySelector('input');
@@ -183,6 +185,39 @@ function initControls() {
     }
   });
 
+  // ✕ on error messages.
+  document.querySelectorAll('[data-dismiss]').forEach((b) => b.addEventListener('click', () => { $(b.dataset.dismiss).hidden = true; }));
+  $('submitStatusDismiss').addEventListener('click', () => setSubmitStatus(''));
+
+  // Resize the selected object (uniformly) by percentage or to a size in mm.
+  const setScale = (o, scale) => {
+    scale = Math.min(10, Math.max(0.01, scale));
+    if (!Number.isFinite(scale) || Math.abs(scale - o.scale) < 1e-9) { renderSelected(); return; }
+    o.scale = scale;
+    orient(o);
+    refresh({ reframe: true });
+  };
+  $('scalePct').addEventListener('change', (e) => {
+    const o = selectedObject();
+    if (o) setScale(o, (+e.target.value || o.scale * 100) / 100);
+  });
+  for (const axis of ['x', 'y', 'z']) {
+    $(`size${axis.toUpperCase()}`).addEventListener('change', (e) => {
+      const o = selectedObject();
+      const cur = o?.oriented.size[axis];
+      if (o && cur > 0 && +e.target.value > 0) setScale(o, o.scale * (+e.target.value / cur));
+      else renderSelected();
+    });
+  }
+  $('fitToPlate').addEventListener('click', () => {
+    const o = selectedObject();
+    if (!o) return;
+    const s = o.oriented.size;
+    // Just inside the printable volume, rounded down to a whole 0.1 %.
+    const k = Math.min(PLATE.width / s.x, PLATE.depth / s.y, PLATE.height / s.z) * 0.999;
+    if (k < 1) setScale(o, Math.floor(o.scale * k * 1000) / 1000);
+  });
+
   $('sliceBtn').addEventListener('click', startSlice);
   $('tabPrepare').addEventListener('click', () => showTab('prepare'));
   $('tabPreview').addEventListener('click', () => showTab('preview'));
@@ -248,9 +283,15 @@ async function handleFiles(files) {
 }
 
 function showLoadError(list) {
-  const err = $('loadError');
-  err.innerHTML = list.map(([en, h]) => `<div>${en}${he(h)}</div>`).join('');
-  err.hidden = false;
+  $('loadErrorMsg').innerHTML = list.map(([en, h]) => `<div>${en}${he(h)}</div>`).join('');
+  $('loadError').hidden = false;
+}
+
+/** Status line under the Submit button; errors get a ✕ to dismiss them. */
+function setSubmitStatus(html, isError = false) {
+  $('submitStatusMsg').innerHTML = html;
+  $('submitStatus').className = `submit-status${isError ? ' error' : ''}`;
+  $('submitStatusDismiss').hidden = !isError || !html;
 }
 
 function removeObject(key) {
@@ -392,6 +433,14 @@ function renderSelected() {
   const o = selectedObject();
   document.querySelectorAll('.orient-tools .tool').forEach((b) => { b.disabled = !o || !!b.dataset.unavailable; });
   $('selectedPanel').hidden = !o;
+  $('sizeTools').hidden = !o;
+  if (o) {
+    $('scalePct').value = +(o.scale * 100).toFixed(1);
+    $('sizeX').value = o.oriented.size.x.toFixed(1);
+    $('sizeY').value = o.oriented.size.y.toFixed(1);
+    $('sizeZ').value = o.oriented.size.z.toFixed(1);
+    $('fitToPlate').hidden = o.fits;
+  }
   const target = $('orientTarget');
   if (!o) {
     target.innerHTML = `Select an object to orient it.${he('בחרו אובייקט כדי לכוון אותו.')}`;
@@ -417,8 +466,8 @@ function renderFitStatus() {
   const bad = state.objects.filter((o) => !o.fits);
   if (bad.length) {
     fit.className = 'fit bad';
-    fit.innerHTML = `Too big for the printer: ${bad.map((o) => `<b>${o.name.replace(/</g, '&lt;')}</b>`).join(', ')}. The maximum is ${PLATE.width} × ${PLATE.depth} × ${PLATE.height} mm. Rotate, split or remove it, or scale it down in your 3D software. Objects that don't fit can't be submitted.
-      ${he(`גדול מדי למדפסת. הגודל המרבי הוא ${PLATE.width} × ${PLATE.depth} × ${PLATE.height} מ״מ. סובבו, פצלו או הסירו את האובייקט, או הקטינו אותו בתוכנת התלת־ממד.`)}`;
+    fit.innerHTML = `Too big for the printer: ${bad.map((o) => `<b>${o.name.replace(/</g, '&lt;')}</b>`).join(', ')}. The maximum is ${PLATE.width} × ${PLATE.depth} × ${PLATE.height} mm. Select it and use <b>Scale to fit the plate</b>, or rotate, split or remove it. Objects that don't fit can't be submitted.
+      ${he(`גדול מדי למדפסת. הגודל המרבי הוא ${PLATE.width} × ${PLATE.depth} × ${PLATE.height} מ״מ. בחרו אותו והשתמשו ב״הקטנה כך שייכנס למשטח״, או סובבו, פצלו או הסירו אותו.`)}`;
     return;
   }
   const n = state.objects.length, c = totalCopies(), p = state.plates.length;
@@ -557,9 +606,8 @@ function renderEstimate() {
   $('estTime').textContent = fmtDuration(r.totalSeconds);
   $('estCost').textContent = `${CONFIG.currency}${fmtMoney(r.cost)}`;
   $('estRate').textContent = `${r.totalMinutes} min × ${CONFIG.currency}${fmtMoney(CONFIG.pricePerMinute)} / min`;
-  const info = PROFILE_INFO[r.processName] || { en: r.processName, he: '' };
   const rows = [
-    ['Profile', 'פרופיל', info.en],
+    ['Profile', 'פרופיל', profileLabel(r.processName)],
     ['Objects', 'אובייקטים', `${state.objects.length}`],
     ['Pieces', 'חלקים', `${totalCopies()}`],
     ['Plates', 'משטחים', `${r.plates.length}`],
@@ -626,10 +674,9 @@ function showTab(tab) {
 // ---------------------------------------------------------------- submission
 
 function updateOrderSummary() {
-  const info = PROFILE_INFO[state.profile] || { en: state.profile };
   const n = state.objects.length, c = totalCopies();
   const parts = n ? [`${n} object${n > 1 ? 's' : ''}`, `${c} piece${c > 1 ? 's' : ''}`] : ['No models yet'];
-  parts.push(info.en, state.color);
+  parts.push(profileLabel(state.profile), state.color);
   if (state.slice) parts.push(`${fmtDuration(state.slice.totalSeconds)} · ${CONFIG.currency}${fmtMoney(state.slice.cost)}`);
   $('orderSummary').textContent = parts.join(' · ');
 }
@@ -680,16 +727,13 @@ async function buildOrientedPlate() {
 
 async function onSubmit(e) {
   e.preventDefault();
-  const status = $('submitStatus');
-  status.className = 'submit-status';
+  setSubmitStatus('');
   if (!state.slice) return;
   if (!validateForm()) {
-    status.className = 'submit-status error';
-    status.innerHTML = `Please fill in the highlighted fields. ${he('נא למלא את השדות המסומנים.')}`;
+    setSubmitStatus(`Please fill in the highlighted fields. ${he('נא למלא את השדות המסומנים.')}`, true);
     return;
   }
   const r = state.slice;
-  const info = PROFILE_INFO[r.processName] || { en: r.processName };
   const fileName = (id) => state.files.find((f) => f.id === id)?.file.name || '';
   const details = {
     name: $('fName').value.trim(),
@@ -710,10 +754,11 @@ async function onSubmit(e) {
       copies: o.copies,
       sizeMm: `${fmt(o.oriented.size.x, 1)} × ${fmt(o.oriented.size.y, 1)} × ${fmt(o.oriented.size.z, 1)}`,
       unitScale: o.unitScale,
+      scalePercent: +(o.scale * 100).toFixed(1),
       rotation: o.R.map((v) => Math.round(v * 1e6) / 1e6),
     })),
     profile: r.processName,
-    profileLabel: info.en,
+    profileLabel: profileLabel(r.processName),
     color: state.color,
     copies: totalCopies(),
     plates: r.plates.length,
@@ -729,7 +774,7 @@ async function onSubmit(e) {
   const btn = $('submitBtn');
   btn.disabled = true;
   try {
-    status.textContent = 'Preparing files… · מכין קבצים…';
+    setSubmitStatus('Preparing files… · מכין קבצים…');
     const plate3mf = await buildOrientedPlate();
     if (plate3mf.size > CONFIG.maxFileMB * 1024 * 1024) {
       throw new Error(`The models together are too detailed to upload (over ${CONFIG.maxFileMB} MB). Remove an object or export coarser meshes.`);
@@ -741,18 +786,17 @@ async function onSubmit(e) {
     const id = await submitPrint({
       details, order, files,
       onStatus: (stage, i, n) => {
-        status.textContent = stage === 'begin' ? 'Creating submission… · יוצר הגשה…'
+        setSubmitStatus(stage === 'begin' ? 'Creating submission… · יוצר הגשה…'
           : stage === 'upload' ? `Uploading file ${i + 1} of ${n}… · מעלה קובץ ${i + 1} מתוך ${n}…`
-            : 'Finishing… · מסיים…';
+            : 'Finishing… · מסיים…');
       },
     });
-    status.textContent = '';
+    setSubmitStatus('');
     $('doneId').textContent = id;
     $('doneIdHe').textContent = id;
     $('doneDialog').showModal();
   } catch (err) {
-    status.className = 'submit-status error';
-    status.textContent = err.message;
+    setSubmitStatus(escapeHtml(err.message), true);
     btn.disabled = false;
   }
 }
@@ -760,6 +804,7 @@ async function onSubmit(e) {
 // ---------------------------------------------------------------- formatting
 
 function fmt(v, d) { return Number(v).toFixed(d); }
+function escapeHtml(t) { return String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function fmtMoney(v) { return Number(v).toFixed(2); }
 function fmtDuration(sec) {
   const m = Math.round(sec / 60);
