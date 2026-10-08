@@ -28,7 +28,7 @@ const state = {
   issues: new Map(), // piece id → 'overlap' | 'off' (off the plate)
   nextPiece: 1,
   profile: PROCESSES[1]?.name || PROCESSES[0].name,
-  color: 'White',
+  plateColors: [], // filament colour of each plate ('White' | 'Black'), parallel to plates
   results: new Map(),  // plate layout signature → sliced plate (see onSliced)
   previews: new Map(), // `${key}:${version}:${profile}` → toolpath preview of an object
   job: null,           // slicing in progress: { worker, id, sigs, previewKeys }
@@ -110,6 +110,15 @@ const plateOf = (id) => state.plates.findIndex((pl) => pl.some((p) => p.id === i
 const copiesOf = (key) => allPieces().filter((p) => p.key === key).length;
 const totalCopies = () => allPieces().length;
 const MAX_PLATES = 36; // Bambu Studio's limit
+const COLORS = ['White', 'Black'];
+const COLOR_HE = { White: 'לבן', Black: 'שחור' };
+const plateColor = (i) => state.plateColors[i] || COLORS[0];
+/** Keeps plateColors the same length as plates (new plates get the colour of the plate shown). */
+function syncPlateColors() {
+  const fallback = plateColor(state.plateIndex);
+  state.plateColors.length = Math.min(state.plateColors.length, state.plates.length);
+  while (state.plateColors.length < state.plates.length) state.plateColors.push(fallback);
+}
 function currentProcess() { return PROCESSES.find((p) => p.name === state.profile); }
 function profileLabel(name) { return PROCESSES.find((p) => p.name === name)?.label || name; }
 
@@ -138,6 +147,18 @@ function initProfiles() {
     (cols[info.group] || cols.functional).appendChild(label);
   });
 }
+
+/** "Send to" choice: one card per modelling center (none chosen at first). */
+function initCenters() {
+  $('centerOptions').innerHTML = (CONFIG.centers || []).map((c) => `
+    <label class="center-option"><input type="radio" name="center" value="${c.id}">
+      <span><b>${c.en}</b>${he(c.he)}</span></label>`).join('');
+  $('centerOptions').addEventListener('change', () => {
+    $('fCenter').classList.remove('invalid');
+    updateOrderSummary();
+  });
+}
+const chosenCenter = () => (CONFIG.centers || []).find((c) => c.id === document.querySelector('input[name=center]:checked')?.value) || null;
 
 function initControls() {
   document.querySelectorAll('[data-max-mb]').forEach((el) => { el.textContent = CONFIG.maxFileMB; });
@@ -168,9 +189,14 @@ function initControls() {
     refresh({ reframe: true });
   });
 
+  // The colour applies to the plate shown.
   document.querySelectorAll('input[name=color]').forEach((r) => r.addEventListener('change', () => {
-    state.color = r.value;
-    viewer.setModelColor(state.color);
+    if (!state.plates.length) return;
+    state.plateColors[state.plateIndex] = r.value;
+    viewer.setModelColor(r.value);
+    renderPlateTabs();
+    renderColorPicker();
+    renderEstimate();
     updateOrderSummary();
   }));
 
@@ -348,7 +374,7 @@ function removeObject(key, { render = true } = {}) {
   // Drop the original file once none of its objects are left on the plate.
   if (!state.objects.some((x) => x.fileId === o.fileId)) state.files = state.files.filter((f) => f.id !== o.fileId);
   if (state.selected === key) select(state.objects[Math.min(i, state.objects.length - 1)]?.key ?? null, null, false);
-  if (!state.objects.length) { state.plates = []; state.plateIndex = 0; }
+  if (!state.objects.length) { state.plates = []; state.plateColors = []; state.plateIndex = 0; }
   $('loadError').hidden = true;
   if (render) refresh({ reframe: true });
 }
@@ -403,6 +429,7 @@ function deletePlate(i) {
   if (!pieces) return;
   if (pieces.length && !confirm(`Delete plate ${i + 1} and the ${pieces.length} piece(s) on it?\nלמחוק את משטח ${i + 1} ואת החלקים שעליו?`)) return;
   state.plates.splice(i, 1);
+  state.plateColors.splice(i, 1);
   // Objects with no pieces left are removed too.
   for (const key of new Set(pieces.map((p) => p.key))) if (!copiesOf(key)) removeObject(key, { render: false });
   if (!state.plates.length && state.objects.length) state.plates.push([]);
@@ -415,7 +442,9 @@ function movePieceToPlate(id, target) {
   if (from < 0 || target === from) return;
   if (target >= state.plates.length) {
     if (state.plates.length >= MAX_PLATES) return;
+    syncPlateColors();
     state.plates.push([]);
+    state.plateColors.push(plateColor(from));
     target = state.plates.length - 1;
   }
   const [piece] = state.plates[from].splice(state.plates[from].findIndex((p) => p.id === id), 1);
@@ -442,8 +471,10 @@ function arrangePieces(pieces) {
 function arrangeCurrentPlate() {
   const i = state.plateIndex;
   if (!state.plates[i]?.length) return;
-  const out = arrangePieces(state.plates[i]);
-  state.plates.splice(i, 1, ...out.slice(0, MAX_PLATES - state.plates.length + 1));
+  const out = arrangePieces(state.plates[i]).slice(0, MAX_PLATES - state.plates.length + 1);
+  state.plates.splice(i, 1, ...out);
+  // Overflow plates keep this plate's colour.
+  state.plateColors.splice(i, 1, ...out.map(() => plateColor(i)));
   refresh({ reframe: true });
 }
 
@@ -465,7 +496,16 @@ function centerCurrentPlate() {
 
 function arrangeAllPlates() {
   if (!allPieces().length) return;
-  state.plates = arrangePieces(allPieces()).slice(0, MAX_PLATES);
+  // Pieces are packed per colour, so each piece keeps the colour of its plate.
+  syncPlateColors();
+  const plates = [], colors = [];
+  for (const color of COLORS) {
+    const pieces = state.plates.flatMap((pl, i) => (plateColor(i) === color ? pl : []));
+    if (!pieces.length) continue;
+    for (const pl of arrangePieces(pieces)) { plates.push(pl); colors.push(color); }
+  }
+  state.plates = plates.slice(0, MAX_PLATES);
+  state.plateColors = colors.slice(0, MAX_PLATES);
   state.plateIndex = Math.min(state.plateIndex, state.plates.length - 1);
   refresh({ reframe: true });
 }
@@ -558,6 +598,7 @@ function select(key, pieceId = null, render = true) {
   if (plate >= 0 && plate !== state.plateIndex) {
     state.plateIndex = plate;
     renderPlateTabs();
+    renderColorPicker();
     updatePlateView();
     frameCurrentPlate();
   }
@@ -582,6 +623,7 @@ function onObjectListClick(e) {
 // ---------------------------------------------------------------- rendering the plate
 
 function refresh({ reframe = false } = {}) {
+  syncPlateColors();
   state.plateIndex = Math.min(state.plateIndex, Math.max(0, state.plates.length - 1));
   if (state.selectedPiece && !pieceById(state.selectedPiece)) state.selectedPiece = null;
   state.issues = findIssues();
@@ -593,6 +635,7 @@ function refresh({ reframe = false } = {}) {
   renderFitStatus();
   renderPlateTabs();
   renderPieceTools();
+  renderColorPicker();
   showTab('prepare');
   renderScene();
   if (reframe) frameCurrentPlate();
@@ -609,7 +652,7 @@ function renderScene() {
     currentPlacements(),
     state.selectedPiece,
   );
-  viewer.setModelColor(state.color);
+  viewer.setModelColor(plateColor(state.plateIndex));
 }
 
 function frameCurrentPlate() {
@@ -714,7 +757,7 @@ function renderPlateTabs() {
     const tab = document.createElement('span');
     const bad = pl.some((p) => state.issues.has(p.id));
     tab.className = `plate-tab${i === state.plateIndex ? ' active' : ''}${bad ? ' bad' : ''}`;
-    tab.innerHTML = `<button type="button" class="plate-pick">Plate ${i + 1} <span class="plate-count">${pl.length}</span></button>`
+    tab.innerHTML = `<button type="button" class="plate-pick"><span class="chip tab-chip ${plateColor(i).toLowerCase()}" aria-label="${plateColor(i)}"></span>Plate ${i + 1} <span class="plate-count">${pl.length}</span></button>`
       + (state.plates.length > 1 ? `<button type="button" class="plate-del" data-tip="Delete plate ${i + 1}" data-tip-desc="Deletes the plate and the pieces on it." data-tip-he="מחיקת משטח ${i + 1} והחלקים שעליו." aria-label="Delete plate ${i + 1}">✕</button>` : '');
     tab.querySelector('.plate-pick').addEventListener('click', () => showPlate(i));
     tab.querySelector('.plate-del')?.addEventListener('click', () => deletePlate(i));
@@ -723,12 +766,21 @@ function renderPlateTabs() {
   $('addPlate').disabled = state.plates.length >= MAX_PLATES;
 }
 
+/** The colour radios show (and set) the colour of the plate shown. */
+function renderColorPicker() {
+  const c = plateColor(state.plateIndex);
+  document.querySelectorAll('input[name=color]').forEach((r) => { r.checked = r.value === c; r.disabled = !state.plates.length; });
+  $('colorPlateNum').textContent = state.plates.length > 1 ? ` · Plate ${state.plateIndex + 1}` : '';
+  $('colorPlateNumHe').textContent = state.plates.length > 1 ? ` · משטח ${state.plateIndex + 1}` : '';
+}
+
 function showPlate(i) {
   state.plateIndex = i;
   const p = state.plates[i]?.find((q) => q.key === state.selected);
   if (p) state.selectedPiece = p.id;
   renderPlateTabs();
   renderPieceTools();
+  renderColorPicker();
   renderScene();
   updatePlateView();
   frameCurrentPlate();
@@ -1007,7 +1059,8 @@ function showTab(tab) {
 function updateOrderSummary() {
   const n = state.objects.length, c = totalCopies();
   const parts = n ? [`${n} object${n > 1 ? 's' : ''}`, `${c} piece${c > 1 ? 's' : ''}`] : ['No models yet'];
-  parts.push(profileLabel(state.profile), state.color);
+  parts.push(profileLabel(state.profile), colorSummary());
+  if (chosenCenter()) parts.push(`→ ${chosenCenter().en}`);
   if (allSliced()) {
     const t = totals();
     parts.push(`${fmtDuration(t.seconds)} · ${CONFIG.currency}${fmtMoney(t.price.total)}`);
@@ -1039,6 +1092,9 @@ function validateForm() {
     el.classList.toggle('invalid', !good);
     if (!good && !firstBad) firstBad = el;
   }
+  const center = chosenCenter();
+  $('fCenter').classList.toggle('invalid', !center);
+  if (!center && !firstBad) firstBad = document.querySelector('input[name=center]');
   const consent = $('fConsent');
   consent.closest('.consent').classList.toggle('invalid', !consent.checked);
   if (!consent.checked && !firstBad) firstBad = consent;
@@ -1049,15 +1105,29 @@ function validateForm() {
 /** Bambu Studio project: every piece where the student placed it, plate by plate, with the chosen profile. */
 async function buildPlatesFile(processName) {
   const { PROJECT_PRESETS } = await import('./project-presets.js');
-  const index = new Map(state.objects.map((o, i) => [o.key, i]));
+  // One filament per colour used; in Bambu Studio the colour belongs to the
+  // object, so an object printed in both colours is written as two objects.
+  const used = COLORS.filter((c) => state.plates.some((pl, i) => pl.length && plateColor(i) === c));
+  const objects = [], index = new Map();
+  state.plates.forEach((pl, i) => {
+    const color = plateColor(i);
+    for (const p of pl) {
+      const id = `${p.key}|${color}`;
+      if (index.has(id)) continue;
+      const o = objectByKey(p.key);
+      const both = used.length > 1 && state.plates.some((q, j) => plateColor(j) !== color && q.some((x) => x.key === p.key));
+      index.set(id, objects.length);
+      objects.push({ name: both ? `${o.name} (${color})` : o.name, positions: o.oriented.positions, extruder: used.indexOf(color) + 1 });
+    }
+  });
   return buildProject3MF(
-    state.objects.map((o) => ({ name: o.name, positions: o.oriented.positions })),
-    state.plates.map((pl) => pl.map((p) => ({ object: index.get(p.key), x: p.x, y: p.y }))),
+    objects,
+    state.plates.map((pl, i) => pl.map((p) => ({ object: index.get(`${p.key}|${plateColor(i)}`), x: p.x, y: p.y }))),
     PROJECT_PRESETS,
     {
       processName,
       filamentName: PROFILE_INFO[processName]?.filament || 'Generic PLA - Bezalel Modelling Center',
-      color: state.color === 'Black' ? '#000000' : '#FFFFFF',
+      colors: used.map((c) => (c === 'Black' ? '#000000' : '#FFFFFF')),
       printableArea: PRINTER.printableArea,
       title: 'Student plates',
     },
@@ -1073,6 +1143,28 @@ function plateLayout() {
   });
 }
 
+/** "White" when every plate is one colour, else "White (plates 1, 3), Black (plate 2)". */
+function colorSummary() {
+  const nums = {};
+  state.plates.forEach((pl, i) => { if (pl.length) (nums[plateColor(i)] ||= []).push(i + 1); });
+  const colors = Object.keys(nums);
+  if (colors.length < 2) return colors[0] || COLORS[0];
+  return colors.map((c) => `${c} (plate${nums[c].length > 1 ? 's' : ''} ${nums[c].join(', ')})`).join(', ');
+}
+
+/** Before submitting: drop empty plates, so plate numbers match the files and the details. */
+function dropEmptyPlates() {
+  syncPlateColors();
+  const keep = state.plates.map((pl) => pl.length > 0);
+  if (keep.every(Boolean)) return;
+  const cur = state.plates[state.plateIndex];
+  state.plateColors = state.plateColors.filter((_, i) => keep[i]);
+  state.plates = state.plates.filter((_, i) => keep[i]);
+  state.plateIndex = Math.max(0, state.plates.indexOf(cur));
+  renderPlateTabs();
+  renderPieceTools();
+}
+
 async function onSubmit(e) {
   e.preventDefault();
   setSubmitStatus('');
@@ -1081,6 +1173,7 @@ async function onSubmit(e) {
     setSubmitStatus(`Please fill in the highlighted fields. ${he('נא למלא את השדות המסומנים.')}`, true);
     return;
   }
+  dropEmptyPlates();
   const t = totals();
   const fileName = (id) => state.files.find((f) => f.id === id)?.file.name || '';
   const details = {
@@ -1107,7 +1200,10 @@ async function onSubmit(e) {
     })),
     profile: state.profile,
     profileLabel: profileLabel(state.profile),
-    color: state.color,
+    color: colorSummary(),
+    plateColors: state.plates.map((_, i) => plateColor(i)),
+    center: chosenCenter()?.id,
+    centerName: chosenCenter()?.en,
     copies: totalCopies(),
     plates: t.plates,
     plateLayout: plateLayout(),
@@ -1163,6 +1259,7 @@ function fmtDuration(sec) {
 }
 
 initTooltips();
+initCenters();
 initProfiles();
 initControls();
 renderSelected();
