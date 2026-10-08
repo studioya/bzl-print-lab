@@ -19,7 +19,7 @@ const SETTINGS = {
   CENTERS: {
     main: {
       NAME: 'Bezalel Main Modelling Center',
-      NAME_HE: 'מרכז המודלים הראשי של בצלאל',
+      NAME_HE: 'מרכז הדיגום הראשי של בצלאל',
       FOLDER_NAME: 'STUDENT 3D SUBMISSIONS',
       SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – Log',
       FOLDER_ID: '',
@@ -28,7 +28,7 @@ const SETTINGS = {
     },
     architecture: {
       NAME: 'Bezalel Architecture Modelling Center',
-      NAME_HE: 'מרכז המודלים של המחלקה לארכיטקטורה',
+      NAME_HE: 'מרכז הדיגום של המחלקה לארכיטקטורה',
       FOLDER_NAME: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE',
       SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE – Log',
       FOLDER_ID: '',
@@ -327,6 +327,7 @@ function validate_(d, o) {
     copies: Math.round(+o.copies),
     color: str(o.color, 120),
     plateColors: (Array.isArray(o.plateColors) ? o.plateColors : []).slice(0, 36).map(function (c) { return str(c, 10); }),
+    plateNames: (Array.isArray(o.plateNames) ? o.plateNames : []).slice(0, 36).map(function (n) { return str(n, 40); }),
     center: str(o.center, 30),
     profileLabel: str(o.profileLabel || o.profile, 60),
     estMinutes: Math.max(0, Math.round(+o.estimatedMinutes || 0)),
@@ -429,7 +430,8 @@ function summaryText_(row, v) {
       (o.scalePercent !== 100 ? ', resized to ' + o.scalePercent + '%' : '') +
       ', rotation ' + JSON.stringify(o.rotation);
   })).concat(v.plateLayout.length ? ['Plates as arranged by the student:'] : []).concat(v.plateLayout.map(function (pl, i) {
-    return '  Plate ' + (i + 1) + (v.plateColors[i] ? ' (' + v.plateColors[i] + ')' : '') + ': ' + pl.join(', ');
+    return '  Plate ' + (i + 1) + (v.plateNames[i] ? ' "' + v.plateNames[i] + '"' : '') +
+      (v.plateColors[i] ? ' (' + v.plateColors[i] + ')' : '') + ': ' + pl.join(', ');
   })).concat([
     '  The "PLATES" 3MF in this folder is a Bambu Studio project with every piece on the plate',
     '  where the student placed it, and the chosen profile. Open it with File → Open Project.',

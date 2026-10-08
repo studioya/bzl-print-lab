@@ -390,3 +390,9 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
 .center-field.invalid .center-option { border-color: var(--danger); background: var(--danger-soft); }
 .center-field .center-option input:focus { outline: none; }
 .center-option:has(input:focus-visible) { outline: 2px solid var(--green); outline-offset: 1px; }
+.plate-name { display: inline-block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; margin-left: 4px; font-weight: 400; color: var(--ink-2); }
+.plate-name::before { content: '· '; }
+.plate-tab .plate-rename { padding: 4px 6px; color: var(--ink-3); border-inline-start: 1px solid var(--line); }
+.plate-tab .plate-rename:hover { color: var(--green-dark); }
+.plate-name-input { font-size: 13px; padding: 3px 6px; width: 170px; border: 0; outline: 2px solid var(--green); border-radius: 6px; }
+.est-plates .plate-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
