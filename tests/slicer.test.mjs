@@ -198,7 +198,7 @@ test('Bambu project 3MF keeps every piece on its plate, with the lab presets', a
   ];
   const blob = await buildProject3MF([{ name: 'a & <b>', positions: cube }, { name: 'c', positions: cube }], plates, PROJECT_PRESETS, {
     processName: 'Press - Bezalel Modelling Center', filamentName: 'Generic PLA Strong - Bezalel Modelling Center',
-    color: '#000000', printableArea: PRINTER.printableArea,
+    color: '#000000', printableArea: PRINTER.printableArea, plateNames: ['Small & <parts>', 'Big', 'empty', ''],
   });
   const { readZip } = await import('../js/loaders.js');
   const files = await readZip(await blob.arrayBuffer(), /./);
@@ -215,6 +215,7 @@ test('Bambu project 3MF keeps every piece on its plate, with the lab presets', a
   const cfg = text('Metadata/model_settings.config');
   const platesXml = cfg.split('<plate>').slice(1);
   assert.equal(platesXml.length, 3);
+  assert.deepEqual(platesXml.map((x) => x.match(/plater_name" value="([^"]*)"/)[1]), ['Small &amp; &lt;parts&gt;', 'Big', '']);
   const inst = (x) => [...x.matchAll(/object_id" value="(\d)"\/>\s*<metadata key="instance_id" value="(\d)"/g)].map((m) => `${m[1]}:${m[2]}`);
   assert.deepEqual(inst(platesXml[0]), ['1:0', '1:1', '2:0']);
   assert.deepEqual(inst(platesXml[1]), ['1:2']);

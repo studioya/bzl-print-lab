@@ -67,12 +67,14 @@ export function bambuPlateOrigin(i, count, printableWidth, printableDepth) {
  *                  (0..printable width/depth, the page's plate view)
  * @param presets   PROJECT_PRESETS (js/project-presets.js)
  * @param options   { processName, filamentName, colors: ['#RRGGBB', …] (one filament each),
+ *                    plateNames: ['', 'Base parts', …] (parallel to plates, optional),
  *                    printableArea: {minX, minY, maxX, maxY} }
  * @returns Promise<Blob>
  */
 export async function buildProject3MF(objects, plates, presets, options) {
   const area = options.printableArea;
   const W = area.maxX - area.minX, D = area.maxY - area.minY;
+  const plateNames = (options.plateNames || []).filter((_, i) => plates[i]?.length);
   plates = plates.filter((p) => p.length);
   const n = objects.length;
   const uuid = (a, b) => `${a.toString(16).padStart(8, '0')}-${b.toString(16).padStart(4, '0')}-4000-8000-000000000000`;
@@ -127,7 +129,7 @@ export async function buildProject3MF(objects, plates, presets, options) {
   plates.forEach((plate, pi) => {
     cfg.push(`  <plate>
     <metadata key="plater_id" value="${pi + 1}"/>
-    <metadata key="plater_name" value=""/>
+    <metadata key="plater_name" value="${esc(plateNames[pi] || '')}"/>
     <metadata key="locked" value="false"/>\n`);
     objects.forEach((o, i) => instances[i].forEach((inst, k) => {
       if (inst.plate !== pi) return;

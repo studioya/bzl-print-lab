@@ -4,7 +4,7 @@ import { loadBackend } from './apps-script-mock.mjs';
 
 const details = { name: 'Dana Levi', idNumber: '012345678', email: 'dana@example.com', phone: '050-1234567',
   department: 'Industrial Design', course: 'Studio 2', deadline: '2026-11-01', notes: 'Please print soon', website: '' };
-const order = { files: ['part.stl', 'bracket.3mf'], profile: 'Normal - Bezalel Modelling Center', profileLabel: 'Normal', color: 'Black (plate 1), White (plate 2)', plateColors: ['Black', 'White'], center: 'main', copies: 4,
+const order = { files: ['part.stl', 'bracket.3mf'], profile: 'Normal - Bezalel Modelling Center', profileLabel: 'Normal', color: 'Black (plate 1), White (plate 2)', plateColors: ['Black', 'White'], plateNames: ['Base', ''], center: 'main', copies: 4,
   objects: [
     { name: 'part.stl', file: 'part.stl', copies: 3, sizeMm: '40 × 20 × 10', unitScale: 1, rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
     { name: 'bracket.3mf – part 2', file: 'bracket.3mf', copies: 1, sizeMm: '12 × 8 × 5', unitScale: 10, scalePercent: 150, rotation: [1, 0, 0, 0, 0, -1, 0, 1, 0] },
@@ -40,7 +40,7 @@ test('begin → file → finish stores files, logs the row and emails the studen
   assert.equal(names.length, 4); // details.txt + 2 originals + plates 3MF
   const txt = b.drive.files.find((f) => f.folder === sub && f.name.endsWith('details.txt')).content;
   assert.match(txt, /Estimated cost: ₪10 — material ₪1\.56 \(₪0\.05\/g\) \+ printing time ₪7\.92 \(₪5\/h\) \+ ₪0\.52 to reach the ₪10 minimum per plate \(plate 2\)/);
-  assert.match(txt, /Plate 1 \(Black\): part\.stl ×2, bracket\.3mf – part 2 ×1\n  Plate 2 \(White\): part\.stl ×1/);
+  assert.match(txt, /Plate 1 "Base" \(Black\): part\.stl ×2, bracket\.3mf – part 2 ×1\n  Plate 2 \(White\): part\.stl ×1/);
   assert.match(txt, /Sent to: Bezalel Main Modelling Center/);
   assert.match(txt, /bracket\.3mf – part 2 ×1 — 12 × 8 × 5 mm, from bracket\.3mf, file units ×10, resized to 150%/);
 });
