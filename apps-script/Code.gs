@@ -19,7 +19,7 @@ const SETTINGS = {
   CENTERS: {
     main: {
       NAME: 'Bezalel Main Modelling Center',
-      NAME_HE: 'מרכז המודלים הראשי של בצלאל',
+      NAME_HE: 'מרכז הדיגום הראשי של בצלאל',
       FOLDER_NAME: 'STUDENT 3D SUBMISSIONS',
       SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – Log',
       FOLDER_ID: '',
@@ -28,7 +28,7 @@ const SETTINGS = {
     },
     architecture: {
       NAME: 'Bezalel Architecture Modelling Center',
-      NAME_HE: 'מרכז המודלים של המחלקה לארכיטקטורה',
+      NAME_HE: 'מרכז הדיגום של המחלקה לארכיטקטורה',
       FOLDER_NAME: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE',
       SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE – Log',
       FOLDER_ID: '',

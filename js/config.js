@@ -10,8 +10,8 @@ export const CONFIG = {
   // A center can have its own appsScriptUrl (e.g. a script on another Google
   // account); otherwise the one above is used.
   centers: [
-    { id: 'main', en: 'Bezalel Main Modelling Center', he: 'מרכז המודלים הראשי של בצלאל' },
-    { id: 'architecture', en: 'Bezalel Architecture Modelling Center', he: 'מרכז המודלים של המחלקה לארכיטקטורה' },
+    { id: 'main', en: 'Bezalel Main Modelling Center', he: 'מרכז הדיגום הראשי של בצלאל' },
+    { id: 'architecture', en: 'Bezalel Architecture Modelling Center', he: 'מרכז הדיגום של המחלקה לארכיטקטורה' },
   ],
 
   // Pricing (shekels): material by weight + printing time (warm-up not charged),
