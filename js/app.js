@@ -882,7 +882,9 @@ function onSliced(result, job) {
     p.seconds *= k;
     p.byFeature = p.byFeature.map((s) => s * k);
     p.minutes = Math.ceil(p.seconds / 60);
-    p.cost = plateCost(p, CONFIG.pricing).cost;
+    const c = plateCost(p, CONFIG.pricing);
+    p.cost = c.cost;
+    p.atMinimum = c.minimumApplied;
     p.hasSupport = p.items.some((it) => result.objects[it.key]?.hasSupport);
     state.results.set(job.sigs[i], p);
   });
@@ -897,6 +899,7 @@ function onSliced(result, job) {
 function renderEstimate() {
   const used = usedPlates();
   const t = totals();
+  const sliced = used.filter((x) => x.result);
   const any = t.plates > 0;
   $('estimateEmpty').hidden = any;
   $('estimateBody').hidden = !any;
@@ -913,7 +916,8 @@ function renderEstimate() {
       <small>${fmt(t.grams, 1)} g × ${rateOf(rate.perGram)}/g</small></div>
     <div class="price-line"><span>Printing time ${he('זמן הדפסה')}</span><b>${money(pr.time)}</b>
       <small>${fmt(t.seconds / 3600, 2)} h × ${rateOf(rate.perHour)}/h</small></div>
-    ${pr.minimumApplied ? `<div class="price-min">Minimum charge of ${money(pr.minimum)} per print applies.${he(`חל מחיר מינימום של ${money(pr.minimum)} להדפסה.`)}</div>` : ''}
+    ${pr.minimumTopUp > 0 ? `<div class="price-line"><span>Plate minimum ${he('מינימום')}</span><b>+${money(pr.minimumTopUp)}</b>
+      <small>${used.length > 1 ? `Plate ${pr.platesAtMinimum.map((i) => sliced[i].index + 1).join(', ')} raised` : 'Raised'} to the ${money(pr.minimum)} minimum per plate · מחיר מינימום ${money(pr.minimum)} למשטח</small></div>` : ''}
     ${missing.length ? `<div class="est-missing">Plate ${missing.join(', ')} not sliced yet: press <b>Slice all plates</b> for the full total.
         ${he(`משטח ${missing.join(', ')} עדיין לא נפרס: לחצו ״פריסת כל המשטחים״ לסכום המלא.`)}</div>` : ''}`;
   // Summary per plate, with the total across plates.
@@ -923,9 +927,8 @@ function renderEstimate() {
     table.innerHTML = `<div class="est-plates-head">Cost per plate ${he('עלות לפי משטח')}</div>
       <table>${used.map(({ index, result: r }) => `<tr class="${index === state.plateIndex ? 'current' : ''}">
         <td>Plate ${index + 1}</td>
-        ${r ? `<td class="num-col">${fmtDuration(r.seconds)}</td><td class="num-col">${money(r.cost)}</td>`
+        ${r ? `<td class="num-col">${fmtDuration(r.seconds)}</td><td class="num-col">${money(r.cost)}${r.atMinimum ? '<span class="min-tag">min</span>' : ''}</td>`
     : `<td class="num-col muted" colspan="2">not sliced · לא נפרס</td>`}</tr>`).join('')}
-        ${pr.minimumApplied ? `<tr class="min"><td colspan="2">Minimum charge${he('מחיר מינימום')}</td><td class="num-col">${money(pr.minimum)}</td></tr>` : ''}
         <tr class="total"><td>Total${he('סה״כ')}</td><td class="num-col">${fmtDuration(t.seconds)}</td><td class="num-col">${money(pr.total)}</td></tr>
       </table>`;
   }
@@ -1110,7 +1113,7 @@ async function onSubmit(e) {
     plateLayout: plateLayout(),
     estimatedMinutes: t.minutes,
     estimatedCost: t.price.total,
-    costBreakdown: { ...t.price, perGram: CONFIG.pricing.perGram, perHour: CONFIG.pricing.perHour },
+    costBreakdown: { ...t.price, minimumPlates: t.price.platesAtMinimum.map((i) => i + 1), perGram: CONFIG.pricing.perGram, perHour: CONFIG.pricing.perHour },
     filamentGrams: Math.round(t.grams * 10) / 10,
     layers: t.layers,
     supports: t.hasSupport,

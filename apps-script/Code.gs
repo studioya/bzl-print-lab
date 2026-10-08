@@ -335,12 +335,13 @@ function safeName_(s) {
 
 // ---------------------------------------------------------------- outputs
 
-/** "material ₪x (g × ₪/g) + time ₪y (h × ₪/h)", plus the minimum if it applied. */
+/** "material ₪x (₪/g) + printing time ₪y (₪/h)", plus what the per-plate minimum added. */
 function costText_(b) {
   if (!b || typeof b !== 'object') return '';
   const n = function (x) { return Math.max(0, +(+x || 0).toFixed(2)); };
   return 'material ₪' + n(b.material) + ' (₪' + n(b.perGram) + '/g) + printing time ₪' + n(b.time) +
-    ' (₪' + n(b.perHour) + '/h)' + (b.minimumApplied ? ', raised to the ₪' + n(b.minimum) + ' minimum' : '');
+    ' (₪' + n(b.perHour) + '/h)' + (n(b.minimumTopUp) > 0 ? ' + ₪' + n(b.minimumTopUp) + ' to reach the ₪' + n(b.minimum) +
+      ' minimum per plate' + (Array.isArray(b.minimumPlates) && b.minimumPlates.length ? ' (plate ' + b.minimumPlates.slice(0, 36).map(Number).join(', ') + ')' : '') : '');
 }
 
 function summaryText_(row, v) {

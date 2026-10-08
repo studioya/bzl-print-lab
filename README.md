@@ -115,7 +115,7 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 | `appsScriptUrl` | `''` | Web app URL from step 2.7 |
 | `pricing.perGram` | `0.05` | ₪ per gram of filament |
 | `pricing.perHour` | `5` | ₪ per hour of estimated printing time; warm-up/prepare time is not charged |
-| `pricing.minimum` | `10` | ₪ minimum for a submission (applied once to the whole submission, not per plate) |
+| `pricing.minimum` | `10` | ₪ minimum for each plate (a plate costing less is charged this) |
 | `maxFiles` | `5` | model files per submission |
 | `maxObjects` | `50` | objects on the plate (after splitting) |
 | `maxCopies` | `10` | copies of each object |

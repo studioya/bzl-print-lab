@@ -6,11 +6,11 @@ export const CONFIG = {
   appsScriptUrl: '',
 
   // Pricing (shekels): material by weight + printing time (warm-up not charged),
-  // with a minimum charge per submission.
+  // with a minimum charge per plate.
   pricing: {
     perGram: 0.05,  // ₪ per gram of filament
     perHour: 5,     // ₪ per hour of estimated printing time
-    minimum: 10,    // ₪ minimum for any print submission
+    minimum: 10,    // ₪ minimum for each plate printed
   },
   currency: '₪',
 
