@@ -5,6 +5,15 @@ export const CONFIG = {
   // submission backend"). Leave empty to run the page without submissions.
   appsScriptUrl: '',
 
+  // Where students can send their print. The ids must match SETTINGS.CENTERS
+  // in apps-script/Code.gs, which decides each center's Drive folder and Sheet.
+  // A center can have its own appsScriptUrl (e.g. a script on another Google
+  // account); otherwise the one above is used.
+  centers: [
+    { id: 'main', en: 'Bezalel Main Modelling Center', he: 'מרכז המודלים הראשי של בצלאל' },
+    { id: 'architecture', en: 'Bezalel Architecture Modelling Center', he: 'מרכז המודלים של המחלקה לארכיטקטורה' },
+  ],
+
   // Pricing (shekels): material by weight + printing time (warm-up not charged),
   // with a minimum charge per plate.
   pricing: {

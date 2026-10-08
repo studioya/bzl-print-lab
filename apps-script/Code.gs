@@ -1,19 +1,43 @@
 /**
  * BZL Print Lab — submission backend (Google Apps Script web app).
  *
- * Receives submissions from the web page, stores each one in its own folder
- * inside "STUDENT 3D SUBMISSIONS" on the lab's Google Drive, logs it in a
- * Google Sheet (newest on top, with a Status column for the lab) and emails
- * the student a confirmation.
+ * Receives submissions from the web page and, for the modelling center the
+ * student chose, stores each one in its own folder inside that center's Drive
+ * folder, logs it in that center's Google Sheet (newest on top, with a Status
+ * column for the lab) and emails the student a confirmation.
  *
  * Setup: see README.md → "Deploy the submission backend".
  */
 
 const SETTINGS = {
-  FOLDER_NAME: 'STUDENT 3D SUBMISSIONS',
-  SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – Log',
+  // The modelling centers students can send to. The keys must match the ids
+  // in js/config.js (centers). For each center:
+  //   FOLDER_ID / SHEET_ID: an existing Drive folder / Google Sheet to use
+  //     (the ID from its URL). Leave '' and `setup` creates them by name.
+  //     Submissions are logged on a tab named "Submissions" in the Sheet.
+  //   NOTIFY_EMAIL: optional, emailed on every new submission to that center.
+  CENTERS: {
+    main: {
+      NAME: 'Bezalel Main Modelling Center',
+      NAME_HE: 'מרכז המודלים הראשי של בצלאל',
+      FOLDER_NAME: 'STUDENT 3D SUBMISSIONS',
+      SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – Log',
+      FOLDER_ID: '',
+      SHEET_ID: '',
+      NOTIFY_EMAIL: '',
+    },
+    architecture: {
+      NAME: 'Bezalel Architecture Modelling Center',
+      NAME_HE: 'מרכז המודלים של המחלקה לארכיטקטורה',
+      FOLDER_NAME: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE',
+      SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE – Log',
+      FOLDER_ID: '',
+      SHEET_ID: '',
+      NOTIFY_EMAIL: '',
+    },
+  },
   LAB_NAME: 'BZL Print Lab',
-  // Optional: also email the lab on every new submission (leave '' to skip).
+  // Optional: also email this address on every new submission, whatever the center.
   LAB_NOTIFY_EMAIL: '',
   // Optional: address students reach when they reply to the confirmation.
   REPLY_TO: '',
@@ -46,7 +70,7 @@ const COLUMNS = [
   ['course', 'Course', 160],
   ['deadline', 'Deadline', 100],
   ['copies', 'Pieces', 60],
-  ['color', 'Color', 70],
+  ['color', 'Color', 140],
   ['profile', 'Profile', 120],
   ['estMinutes', 'Est. time (min)', 100],
   ['estCost', 'Est. cost (₪)', 100],
@@ -65,44 +89,74 @@ const TEXT_COLUMNS = ['id', 'name', 'idNumber', 'email', 'phone', 'department', 
 
 // ---------------------------------------------------------------- setup
 
-/** Run once from the Apps Script editor to create the folder + sheet and grant permissions. */
+/** Run once from the Apps Script editor to create/find each center's folder + sheet and grant permissions. */
 function setup() {
-  const folder = getRootFolder_();
-  const sheet = getSheet_();
-  Logger.log('Folder: ' + folder.getUrl());
-  Logger.log('Sheet:  ' + sheet.getParent().getUrl());
+  Object.keys(SETTINGS.CENTERS).forEach(function (c) {
+    const folder = getRootFolder_(c);
+    const sheet = getSheet_(c);
+    Logger.log(SETTINGS.CENTERS[c].NAME + '\n  Folder: ' + folder.getUrl() + '\n  Sheet:  ' + sheet.getParent().getUrl());
+  });
 }
 
-function getRootFolder_() {
+function center_(id) {
+  const c = SETTINGS.CENTERS[id];
+  if (!c) throw userError_('Please choose a modelling center.');
+  return c;
+}
+
+// Script-property names for the folder/sheet IDs found or created by setup.
+// The main center keeps the names used before there were two centers.
+function propKey_(name, centerId) {
+  return centerId === 'main' ? name : name + '_' + centerId;
+}
+
+function getRootFolder_(centerId) {
+  const c = center_(centerId);
+  if (c.FOLDER_ID) return DriveApp.getFolderById(c.FOLDER_ID);
   const props = PropertiesService.getScriptProperties();
-  const id = props.getProperty('FOLDER_ID');
+  const id = props.getProperty(propKey_('FOLDER_ID', centerId));
   if (id) {
     try { return DriveApp.getFolderById(id); } catch (e) { /* recreated below */ }
   }
-  const it = DriveApp.getRootFolder().getFoldersByName(SETTINGS.FOLDER_NAME);
-  const folder = it.hasNext() ? it.next() : DriveApp.getRootFolder().createFolder(SETTINGS.FOLDER_NAME);
-  props.setProperty('FOLDER_ID', folder.getId());
+  const it = DriveApp.getRootFolder().getFoldersByName(c.FOLDER_NAME);
+  const folder = it.hasNext() ? it.next() : DriveApp.getRootFolder().createFolder(c.FOLDER_NAME);
+  props.setProperty(propKey_('FOLDER_ID', centerId), folder.getId());
   return folder;
 }
 
-function getSheet_() {
-  const props = PropertiesService.getScriptProperties();
-  const id = props.getProperty('SHEET_ID');
+const LOG_TAB = 'Submissions';
+
+function getSheet_(centerId) {
+  const c = center_(centerId);
   let ss = null;
-  if (id) {
-    try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; }
+  if (c.SHEET_ID) {
+    ss = SpreadsheetApp.openById(c.SHEET_ID);
+  } else {
+    const props = PropertiesService.getScriptProperties();
+    const id = props.getProperty(propKey_('SHEET_ID', centerId));
+    if (id) {
+      try { ss = SpreadsheetApp.openById(id); } catch (e) { ss = null; }
+    }
+    if (!ss) {
+      ss = SpreadsheetApp.create(c.SHEET_TITLE);
+      DriveApp.getFileById(ss.getId()).moveTo(getRootFolder_(centerId));
+      props.setProperty(propKey_('SHEET_ID', centerId), ss.getId());
+      formatSheet_(ss.getSheets()[0]);
+    }
   }
-  if (!ss) {
-    ss = SpreadsheetApp.create(SETTINGS.SHEET_TITLE);
-    DriveApp.getFileById(ss.getId()).moveTo(getRootFolder_());
-    props.setProperty('SHEET_ID', ss.getId());
-    formatSheet_(ss.getSheets()[0]);
+  // The log lives on the "Submissions" tab (the first tab of a sheet created
+  // before tabs were named); it's added to an existing Sheet if missing.
+  let sheet = ss.getSheetByName(LOG_TAB);
+  if (!sheet && !c.SHEET_ID) sheet = ss.getSheets()[0];
+  if (!sheet) {
+    sheet = ss.insertSheet(LOG_TAB, 0);
+    formatSheet_(sheet);
   }
-  return ss.getSheets()[0];
+  return sheet;
 }
 
 function formatSheet_(sheet) {
-  sheet.setName('Submissions');
+  sheet.setName(LOG_TAB);
   sheet.getRange(1, 1, 1, COLUMNS.length)
     .setValues([COLUMNS.map(function (c) { return c[1]; })])
     .setFontWeight('bold').setBackground('#1f2428').setFontColor('#ffffff');
@@ -164,7 +218,7 @@ function begin_(req) {
   // Folder names start with the date/time so "Name ↓" (Z→A) sorting in Drive
   // lists the newest submissions first.
   const stamp = Utilities.formatDate(now, SETTINGS.TIMEZONE, 'yyyy-MM-dd HH.mm');
-  const folder = getRootFolder_().createFolder(stamp + ' · ' + safeName_(v.name) + ' · ' + id);
+  const folder = getRootFolder_(v.center).createFolder(stamp + ' · ' + safeName_(v.name) + ' · ' + id);
 
   const row = {
     submitted: Utilities.formatDate(now, SETTINGS.TIMEZONE, 'yyyy-MM-dd HH:mm'),
@@ -184,7 +238,7 @@ function begin_(req) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const sheet = getSheet_();
+    const sheet = getSheet_(v.center);
     sheet.insertRowBefore(2);
     const range = sheet.getRange(2, 1, 1, COLUMNS.length);
     range.setFontWeight('normal').setBackground(null).setFontColor('#000000');
@@ -201,7 +255,7 @@ function begin_(req) {
 
   CacheService.getScriptCache().put('sub_' + id, JSON.stringify({
     token: token, folderId: folder.getId(), files: [], email: v.email, name: v.name,
-    summary: row,
+    center: v.center, summary: row,
   }), 6 * 60 * 60);
   return { ok: true, id: id, token: token };
 }
@@ -230,7 +284,7 @@ function finish_(req) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const sheet = getSheet_();
+    const sheet = getSheet_(sub.center || 'main');
     const cell = sheet.getRange(1, COL.id, sheet.getLastRow(), 1).createTextFinder(req.id).matchEntireCell(true).findNext();
     if (cell) {
       const r = cell.getRow();
@@ -271,7 +325,9 @@ function validate_(d, o) {
     deadline: str(d.deadline, 10),
     notes: str(d.notes, 1500),
     copies: Math.round(+o.copies),
-    color: str(o.color, 10),
+    color: str(o.color, 120),
+    plateColors: (Array.isArray(o.plateColors) ? o.plateColors : []).slice(0, 36).map(function (c) { return str(c, 10); }),
+    center: str(o.center, 30),
     profileLabel: str(o.profileLabel || o.profile, 60),
     estMinutes: Math.max(0, Math.round(+o.estimatedMinutes || 0)),
     estCost: Math.max(0, +(+o.estimatedCost || 0).toFixed(2)),
@@ -308,7 +364,8 @@ function validate_(d, o) {
   if (v.objects.some(function (x) { return !x.name || !(x.copies >= 1 && x.copies <= SETTINGS.MAX_COPIES_PER_OBJECT); })) problems.push('copies');
   if (v.copies !== v.objects.reduce(function (s, x) { return s + x.copies; }, 0)) problems.push('copies');
   if (!v.files.length) problems.push('files');
-  if (['White', 'Black'].indexOf(v.color) < 0) problems.push('color');
+  if (!/^(White|Black)\b/.test(v.color) || v.plateColors.some(function (c) { return ['White', 'Black'].indexOf(c) < 0; })) problems.push('color');
+  if (!SETTINGS.CENTERS[v.center]) problems.push('modelling center');
   if (!v.profileLabel) problems.push('profile');
   if (problems.length) throw userError_('Please check: ' + problems.join(', ') + '.');
   return v;
@@ -347,6 +404,7 @@ function costText_(b) {
 function summaryText_(row, v) {
   return [
     'Submission ' + row.id + ' — ' + row.submitted,
+    'Sent to: ' + SETTINGS.CENTERS[v.center].NAME,
     '',
     'Name: ' + row.name,
     'ID number: ' + row.idNumber,
@@ -371,7 +429,7 @@ function summaryText_(row, v) {
       (o.scalePercent !== 100 ? ', resized to ' + o.scalePercent + '%' : '') +
       ', rotation ' + JSON.stringify(o.rotation);
   })).concat(v.plateLayout.length ? ['Plates as arranged by the student:'] : []).concat(v.plateLayout.map(function (pl, i) {
-    return '  Plate ' + (i + 1) + ': ' + pl.join(', ');
+    return '  Plate ' + (i + 1) + (v.plateColors[i] ? ' (' + v.plateColors[i] + ')' : '') + ': ' + pl.join(', ');
   })).concat([
     '  The "PLATES" 3MF in this folder is a Bambu Studio project with every piece on the plate',
     '  where the student placed it, and the chosen profile. Open it with File → Open Project.',
@@ -385,8 +443,10 @@ function sendConfirmation_(sub) {
   if (MailApp.getRemainingDailyQuota() < 1) return;
   const r = sub.summary;
   const esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  const center = SETTINGS.CENTERS[sub.center] || SETTINGS.CENTERS.main;
   const rows = [
     ['Submission number', 'מספר הגשה', r.id],
+    ['Sent to', 'נשלח אל', center.NAME + ' · ' + center.NAME_HE],
     ['Profile', 'פרופיל', r.profile],
     ['Color', 'צבע', r.color],
     ['Pieces', 'חלקים', r.copies],
@@ -407,16 +467,17 @@ function sendConfirmation_(sub) {
     '<p>קיבלנו את הגשת ההדפסה שלך. הדפסות עשויות להימשך עד מספר שבועות, בהתאם לתור במעבדה. ' +
     'הזמן והעלות שלהלן הם הערכה בלבד; המעבדה תאשר את הפרטים הסופיים.</p></div>' +
     '<table style="border-collapse:collapse;margin:12px 0">' + table + '</table>' +
-    '<p style="color:#777;font-size:12px">' + SETTINGS.LAB_NAME + '</p></div>';
+    '<p style="color:#777;font-size:12px">' + esc(center.NAME) + ' · ' + SETTINGS.LAB_NAME + '</p></div>';
   const text = 'We received your 3D print submission ' + r.id + '. Estimated time ' + r.estMinutes +
     ' min, estimated cost ₪' + r.estCost + '. Prints can take up to several weeks.';
-  const opts = { name: SETTINGS.LAB_NAME, htmlBody: html };
+  const opts = { name: center.NAME, htmlBody: html };
   if (SETTINGS.REPLY_TO) opts.replyTo = SETTINGS.REPLY_TO;
-  MailApp.sendEmail(sub.email, SETTINGS.LAB_NAME + ' – submission ' + r.id + ' received · ההגשה התקבלה', text, opts);
+  MailApp.sendEmail(sub.email, center.NAME + ' – 3D print submission ' + r.id + ' received · ההגשה התקבלה', text, opts);
 
-  if (SETTINGS.LAB_NOTIFY_EMAIL && MailApp.getRemainingDailyQuota() > 0) {
-    MailApp.sendEmail(SETTINGS.LAB_NOTIFY_EMAIL, 'New print submission ' + r.id + ' – ' + r.name,
+  [center.NOTIFY_EMAIL, SETTINGS.LAB_NOTIFY_EMAIL].filter(function (a, i, all) { return a && all.indexOf(a) === i; }).forEach(function (to) {
+    if (MailApp.getRemainingDailyQuota() < 1) return;
+    MailApp.sendEmail(to, 'New print submission ' + r.id + ' – ' + r.name + ' (' + center.NAME + ')',
       r.name + ' (' + r.department + ', ' + r.course + ') submitted ' + r.copies + ' piece(s), ' + r.profile + ', ' + r.color +
-      ', ~' + r.estMinutes + ' min, needed by ' + r.deadline + '.\n\nSheet: ' + getSheet_().getParent().getUrl());
-  }
+      ', ~' + r.estMinutes + ' min, needed by ' + r.deadline + '.\n\nSheet: ' + getSheet_(sub.center || 'main').getParent().getUrl());
+  });
 }

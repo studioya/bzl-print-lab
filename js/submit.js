@@ -7,12 +7,12 @@
 
 import { CONFIG } from './config.js';
 
-async function post(body) {
+async function postTo(url, body) {
   let res;
   try {
     // text/plain body keeps this a "simple" CORS request (no preflight), which
     // Apps Script web apps require.
-    res = await fetch(CONFIG.appsScriptUrl, {
+    res = await fetch(url, {
       method: 'POST',
       body: JSON.stringify(body),
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -45,9 +45,12 @@ function toBase64(blob) {
  * @returns submission id
  */
 export async function submitPrint({ details, order, files, onStatus = () => {} }) {
-  if (!CONFIG.appsScriptUrl) {
+  const center = CONFIG.centers?.find((c) => c.id === order.center);
+  const url = center?.appsScriptUrl || CONFIG.appsScriptUrl;
+  if (!url) {
     throw new Error('Submissions are not set up yet. (Lab staff: set appsScriptUrl in js/config.js.)');
   }
+  const post = (body) => postTo(url, body);
   onStatus('begin', 0, files.length);
   const { id, token } = await post({ action: 'begin', details, order });
   for (let i = 0; i < files.length; i++) {

@@ -5,7 +5,6 @@ import vm from 'node:vm';
 
 export function loadBackend() {
   const drive = { folders: [], files: [] };
-  const sheetRows = [];        // row arrays, index 0 = header
   const formulas = {};
   const mails = [];
   const cache = new Map();
@@ -32,38 +31,59 @@ export function loadBackend() {
   };
   const root = makeFolder('My Drive');
 
-  const cell = (r, c) => ({
-    setValue(v) { (sheetRows[r - 1] ||= [])[c - 1] = v; return this; },
-    setFormula(v) { formulas[`${r},${c}`] = v; return this; },
-    setNumberFormat() { return this; }, setDataValidation() { return this; },
-    getRow() { return r; },
-  });
-  const sheet = {
-    insertRowBefore(r) { sheetRows.splice(r - 1, 0, []); },
-    getRange(r, c, nr = 1, nc = 1) {
-      if (nr === 1 && nc === 1) return { ...cell(r, c), setFontWeight() { return this; }, setBackground() { return this; }, setFontColor() { return this; } };
-      return {
-        setValues(vals) { vals.forEach((row, i) => { sheetRows[r - 1 + i] = row.slice(); }); return this; },
-        setFontWeight() { return this; }, setBackground() { return this; }, setFontColor() { return this; },
-        createTextFinder(text) {
-          return { matchEntireCell() { return this; }, findNext() {
-            for (let i = r - 1; i < r - 1 + nr; i++) if (sheetRows[i] && sheetRows[i][c - 1] === text) return cell(i + 1, c);
-            return null;
-          } };
-        },
-      };
-    },
-    getLastRow() { return sheetRows.length; }, getMaxRows() { return 1000; },
-    setName() {}, setFrozenRows() {}, setFrozenColumns() {}, setColumnWidth() {}, setConditionalFormatRules() {},
-    getParent() { return { getUrl: () => 'https://docs.google.com/spreadsheets/d/mock' }; },
+  // Spreadsheets, each with named tabs; `sheetRows` is the first tab created.
+  const spreadsheets = [];
+  const makeTab = (name, ss) => {
+    const rows = [];
+    const cell = (r, c) => ({
+      setValue(v) { (rows[r - 1] ||= [])[c - 1] = v; return this; },
+      setFormula(v) { formulas[`${ss.id}:${r},${c}`] = v; return this; },
+      setNumberFormat() { return this; }, setDataValidation() { return this; },
+      getRow() { return r; },
+    });
+    return {
+      name, rows,
+      insertRowBefore(r) { rows.splice(r - 1, 0, []); },
+      getRange(r, c, nr = 1, nc = 1) {
+        if (nr === 1 && nc === 1) return { ...cell(r, c), setFontWeight() { return this; }, setBackground() { return this; }, setFontColor() { return this; } };
+        return {
+          setValues(vals) { vals.forEach((row, i) => { rows[r - 1 + i] = row.slice(); }); return this; },
+          setFontWeight() { return this; }, setBackground() { return this; }, setFontColor() { return this; },
+          createTextFinder(text) {
+            return { matchEntireCell() { return this; }, findNext() {
+              for (let i = r - 1; i < r - 1 + nr; i++) if (rows[i] && rows[i][c - 1] === text) return cell(i + 1, c);
+              return null;
+            } };
+          },
+        };
+      },
+      getLastRow() { return rows.length; }, getMaxRows() { return 1000; },
+      setName(n) { this.name = n; }, setFrozenRows() {}, setFrozenColumns() {}, setColumnWidth() {}, setConditionalFormatRules() {},
+      getParent() { return ss; },
+    };
   };
-  const ss = { getId: () => 'ss1', getSheets: () => [sheet] };
+  const makeSpreadsheet = (title, id = 'ss' + nextId++) => {
+    const ss = { id, title, tabs: [],
+      getId() { return this.id; }, getUrl() { return 'https://docs.google.com/spreadsheets/d/' + this.id; },
+      getSheets() { return this.tabs; },
+      getSheetByName(n) { return this.tabs.find((t) => t.name === n) || null; },
+      insertSheet(n, at = this.tabs.length) { const t = makeTab(n, this); this.tabs.splice(at, 0, t); return t; },
+    };
+    ss.tabs.push(makeTab('Sheet1', ss));
+    spreadsheets.push(ss);
+    return ss;
+  };
+  const openById = (id) => {
+    const ss = spreadsheets.find((x) => x.id === id);
+    if (!ss) throw new Error('No spreadsheet ' + id);
+    return ss;
+  };
 
   const builder = () => new Proxy({}, { get: (t, k) => (k === 'build' ? () => ({}) : () => builder()) });
   const ctx = {
     console: { ...console, error() {} },
-    DriveApp: { getRootFolder: () => root, getFolderById: (id) => drive.folders.find((f) => f.id === id), getFileById: () => ({ moveTo() {} }) },
-    SpreadsheetApp: { create: () => ss, openById: () => ss, newConditionalFormatRule: builder, newDataValidation: builder },
+    DriveApp: { getRootFolder: () => root, getFolderById: (id) => { const f = drive.folders.find((x) => x.id === id); if (!f) throw new Error('No folder ' + id); return f; }, getFileById: () => ({ moveTo() {} }) },
+    SpreadsheetApp: { create: (t) => makeSpreadsheet(t), openById, newConditionalFormatRule: builder, newDataValidation: builder },
     PropertiesService: { getScriptProperties: () => ({ getProperty: (k) => props.get(k) ?? null, setProperty: (k, v) => props.set(k, v) }) },
     CacheService: { getScriptCache: () => ({ get: (k) => cache.get(k) ?? null, put: (k, v) => cache.set(k, v), remove: (k) => cache.delete(k) }) },
     LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
@@ -86,5 +106,9 @@ export function loadBackend() {
   vm.createContext(ctx);
   vm.runInContext(readFileSync(new URL('../apps-script/Code.gs', import.meta.url), 'utf8'), ctx);
   const call = (body) => JSON.parse(ctx.doPost({ postData: { contents: typeof body === 'string' ? body : JSON.stringify(body) } }).text);
-  return { call, drive, sheetRows, formulas, mails, root };
+  // Rows of the first log tab (the main center's), for older tests.
+  const sheetRows = new Proxy([], { get: (t, k) => (spreadsheets[0]?.tabs[0].rows ?? [])[k] });
+  // Settings can be changed from tests, e.g. backend.settings.CENTERS.main.SHEET_ID = …
+  const settings = vm.runInContext('SETTINGS', ctx);
+  return { call, drive, sheetRows, spreadsheets, makeSpreadsheet, formulas, mails, root, settings, props };
 }

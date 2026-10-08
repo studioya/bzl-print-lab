@@ -5,7 +5,7 @@ A single web page where students:
 1. add up to **5 model files** (**STL, OBJ or 3MF**, up to 25 MB each) to the plate,
 2. manage the **objects** on the plate like in Bambu Studio: **split** a file into its separate parts,
    **remove** objects, and set **copies** (1–10) per object,
-3. pick one of the lab's **Bambu Studio printing profiles** and a colour (black/white),
+3. pick one of the lab's **Bambu Studio printing profiles**, and a colour (black/white) **for each plate**,
 4. **orient** each object (auto-orient, lay on face, rotate) and **resize** it (scale %, size in mm,
    or *Scale to fit the plate* for models that are too big),
 5. **arrange the plates** like in Bambu Studio: copies are placed automatically, then students can
@@ -15,7 +15,8 @@ A single web page where students:
 6. **slice in the browser** with *Slice this plate* or *Slice all plates* and get a Bambu-style
    toolpath preview plus a **time and cost estimate**: the total across all plates and each plate's
    time and cost. A plate's result is kept until that plate changes; submitting needs every plate sliced,
-7. fill in their details and **submit**. The model lands in the lab's Google Drive folder
+7. choose where to send it: **Bezalel Main Modelling Center** or **Bezalel Architecture Modelling
+   Center**, fill in their details and **submit**. The model lands in the lab's Google Drive folder
    `STUDENT 3D SUBMISSIONS`, the details go into a Google Sheet with a Status column, and the
    student gets a confirmation email.
 
@@ -59,12 +60,17 @@ account's Drive, and confirmation emails are sent from it.
 2. Replace the contents of `Code.gs` with [`apps-script/Code.gs`](apps-script/Code.gs).
 3. **Project Settings (⚙) → tick "Show 'appsscript.json' manifest file in editor"**, then replace
    `appsscript.json` with [`apps-script/appsscript.json`](apps-script/appsscript.json).
-4. Optional: at the top of `Code.gs`, set `LAB_NOTIFY_EMAIL` (email the lab on every submission)
-   and `REPLY_TO` (where student replies go).
+4. At the top of `Code.gs`, in `SETTINGS.CENTERS`, set up each modelling center:
+   - `FOLDER_ID` / `SHEET_ID`: the existing Drive folder and Google Sheet to use for that center (the
+     long ID in its URL). Leave them `''` and `setup` creates a folder and Sheet by name
+     (`FOLDER_NAME`, `SHEET_TITLE`). In an existing Sheet, submissions go on a tab named
+     **Submissions**, created if missing; other tabs aren't touched.
+   - `NOTIFY_EMAIL` (optional): emailed on every new submission to that center.
+   - Optional for all: `LAB_NOTIFY_EMAIL` and `REPLY_TO` (where student replies go).
+   The center keys (`main`, `architecture`) must match `centers` in `js/config.js`.
 5. Choose the `setup` function in the toolbar and press **Run**. Approve the permission prompt
    (Google warns that the app is unverified. Click *Advanced → Go to … (unsafe)*: it's your own script).
-   This creates the `STUDENT 3D SUBMISSIONS` folder and the log Sheet inside it; the execution
-   log prints both links.
+   This finds or creates each center's folder and log Sheet; the execution log prints the links.
 6. **Deploy → New deployment → type: Web app**
    - *Execute as*: **Me**
    - *Who has access*: **Anyone**
@@ -76,7 +82,9 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 
 ### What the lab gets
 
-- **Drive:** `STUDENT 3D SUBMISSIONS/2026-10-06 14.32 · Student Name · P261006-7K3Q/` containing
+- **Drive:** in the folder of the center the student chose (by default `STUDENT 3D SUBMISSIONS` for
+  the main center, `STUDENT 3D SUBMISSIONS – ARCHITECTURE` for architecture), e.g.
+  `2026-10-06 14.32 · Student Name · P261006-7K3Q/`, containing
   - `ORIGINAL – <file>`: each file exactly as the student uploaded it (files whose objects were all
     removed from the plate are not uploaded),
   - `PLATES – plates.3mf`: a **Bambu Studio project** with every piece exactly where the student put
@@ -113,6 +121,7 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 | Setting | Default | |
 |---|---|---|
 | `appsScriptUrl` | `''` | Web app URL from step 2.7 |
+| `centers` | main, architecture | The "Send to" choices (English/Hebrew names). A center can have its own `appsScriptUrl` |
 | `pricing.perGram` | `0.05` | ₪ per gram of filament |
 | `pricing.perHour` | `5` | ₪ per hour of estimated printing time; warm-up/prepare time is not charged |
 | `pricing.minimum` | `10` | ₪ minimum for each plate (a plate costing less is charged this) |

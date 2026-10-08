@@ -66,7 +66,9 @@
             </div>
           </fieldset>
           <fieldset class="colors">
-            <legend>Color <span class="he" lang="he" dir="rtl">צבע</span></legend>
+            <legend>Color<span id="colorPlateNum"></span> <span class="he" lang="he" dir="rtl">צבע<span id="colorPlateNumHe"></span></span></legend>
+            <p class="hint color-hint">Each plate prints in one colour; pick a plate tab to set its colour.
+              <span class="he" lang="he" dir="rtl">כל משטח מודפס בצבע אחד; בחרו משטח כדי לקבוע את צבעו.</span></p>
             <label class="swatch"><input type="radio" name="color" value="White" checked>
               <span class="chip white"></span> White <span class="he" lang="he" dir="rtl">לבן</span></label>
             <label class="swatch"><input type="radio" name="color" value="Black">
@@ -209,6 +211,10 @@
       </div>
       <form id="form" novalidate>
         <div class="grid">
+          <fieldset class="field full center-field" id="fCenter">
+            <legend>Send to <span class="he" lang="he" dir="rtl">שליחה אל</span></legend>
+            <div class="center-options" id="centerOptions"></div>
+          </fieldset>
           <div class="field">
             <label for="fName">Full name <span class="he" lang="he" dir="rtl">שם מלא</span></label>
             <input id="fName" name="name" required maxlength="80" autocomplete="name">

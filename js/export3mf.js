@@ -60,12 +60,14 @@ export function bambuPlateOrigin(i, count, printableWidth, printableDepth) {
 }
 
 /**
- * @param objects   [{ name, positions: Float32Array }] — triangle soup in mm,
- *                  centred at x/y = 0 with min z = 0 (as oriented on the page)
+ * @param objects   [{ name, positions: Float32Array, extruder? }] — triangle soup in mm,
+ *                  centred at x/y = 0 with min z = 0 (as oriented on the page);
+ *                  extruder: 1-based filament (index into options.colors + 1)
  * @param plates    [[{ object: index into objects, x, y }]] — plate coordinates
  *                  (0..printable width/depth, the page's plate view)
  * @param presets   PROJECT_PRESETS (js/project-presets.js)
- * @param options   { processName, filamentName, color: '#RRGGBB', printableArea: {minX, minY, maxX, maxY} }
+ * @param options   { processName, filamentName, colors: ['#RRGGBB', …] (one filament each),
+ *                    printableArea: {minX, minY, maxX, maxY} }
  * @returns Promise<Blob>
  */
 export async function buildProject3MF(objects, plates, presets, options) {
@@ -112,7 +114,7 @@ export async function buildProject3MF(objects, plates, presets, options) {
   objects.forEach((o, i) => {
     cfg.push(`  <object id="${i + 1}">
     <metadata key="name" value="${esc(o.name)}"/>
-    <metadata key="extruder" value="1"/>
+    <metadata key="extruder" value="${o.extruder || 1}"/>
     <metadata face_count="${faces[i]}"/>
     <part id="${i + 1}" subtype="normal_part">
       <metadata key="name" value="${esc(o.name)}"/>
@@ -154,12 +156,19 @@ export async function buildProject3MF(objects, plates, presets, options) {
  * filament settings merged into one object, with the preset names so Bambu
  * selects the lab's presets (PresetBundle::full_fff_config).
  */
-export function projectSettings(presets, { processName, filamentName, color }) {
+export function projectSettings(presets, { processName, filamentName, colors, color }) {
   const printer = presets.printer, process = presets.processes[processName], filament = presets.filaments[filamentName];
   if (!process || !filament) throw new Error(`Unknown preset: ${!process ? processName : filamentName}`);
-  const out = { ...printer.settings, ...process.settings, ...filament.settings };
-  out.filament_colour = [color || '#FFFFFF'];
-  out.filament_settings_id = [filament.name];
+  colors = colors?.length ? colors : [color || '#FFFFFF'];
+  // One filament slot per colour, all the same lab PLA preset: per-filament
+  // settings (arrays) are repeated for each slot.
+  const filamentSettings = {};
+  for (const [k, v] of Object.entries(filament.settings)) {
+    filamentSettings[k] = Array.isArray(v) && v.length === 1 ? colors.map(() => v[0]) : v;
+  }
+  const out = { ...printer.settings, ...process.settings, ...filamentSettings };
+  out.filament_colour = colors.slice();
+  out.filament_settings_id = colors.map(() => filament.name);
   out.print_settings_id = process.name;
   out.printer_settings_id = printer.name;
   out.print_compatible_printers = process.compatiblePrinters;
