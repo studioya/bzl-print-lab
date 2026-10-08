@@ -25,7 +25,7 @@ the only backend is a free Google Apps Script attached to the lab's Google accou
 ```
 index.html, css/, js/       the page (static, hosted on GitHub Pages)
 js/slicer/                  the slicer (runs in a Web Worker)
-js/config.js                lab settings: backend URL, price per minute, limits, calibration
+js/config.js                lab settings: backend URL, pricing, limits, calibration
 js/profile-info.js          student-facing profile names + descriptions (EN/HE)
 js/profiles-data.js         GENERATED from profiles/ — don't edit by hand
 js/project-presets.js       GENERATED from profiles/ — full presets for the Bambu project file
@@ -113,7 +113,9 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 | Setting | Default | |
 |---|---|---|
 | `appsScriptUrl` | `''` | Web app URL from step 2.7 |
-| `pricePerMinute` | `0.5` | ₪ per minute of estimated print time; warm-up/prepare time is not charged |
+| `pricing.perGram` | `0.05` | ₪ per gram of filament |
+| `pricing.perHour` | `5` | ₪ per hour of estimated printing time; warm-up/prepare time is not charged |
+| `pricing.minimum` | `10` | ₪ minimum for a submission (applied once to the whole submission, not per plate) |
 | `maxFiles` | `5` | model files per submission |
 | `maxObjects` | `50` | objects on the plate (after splitting) |
 | `maxCopies` | `10` | copies of each object |

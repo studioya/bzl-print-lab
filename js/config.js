@@ -5,8 +5,13 @@ export const CONFIG = {
   // submission backend"). Leave empty to run the page without submissions.
   appsScriptUrl: '',
 
-  // Pricing: shekels per minute of estimated print time (warm-up not charged).
-  pricePerMinute: 0.5,
+  // Pricing (shekels): material by weight + printing time (warm-up not charged),
+  // with a minimum charge per submission.
+  pricing: {
+    perGram: 0.05,  // ₪ per gram of filament
+    perHour: 5,     // ₪ per hour of estimated printing time
+    minimum: 10,    // ₪ minimum for any print submission
+  },
   currency: '₪',
 
   maxFiles: 5,      // model files per submission

@@ -275,6 +275,7 @@ function validate_(d, o) {
     profileLabel: str(o.profileLabel || o.profile, 60),
     estMinutes: Math.max(0, Math.round(+o.estimatedMinutes || 0)),
     estCost: Math.max(0, +(+o.estimatedCost || 0).toFixed(2)),
+    costText: costText_(o.costBreakdown),
     plates: Math.max(1, Math.round(+o.plates || 1)),
     grams: Math.max(0, +(+o.filamentGrams || 0).toFixed(1)),
     supports: !!o.supports,
@@ -334,6 +335,14 @@ function safeName_(s) {
 
 // ---------------------------------------------------------------- outputs
 
+/** "material ₪x (g × ₪/g) + time ₪y (h × ₪/h)", plus the minimum if it applied. */
+function costText_(b) {
+  if (!b || typeof b !== 'object') return '';
+  const n = function (x) { return Math.max(0, +(+x || 0).toFixed(2)); };
+  return 'material ₪' + n(b.material) + ' (₪' + n(b.perGram) + '/g) + printing time ₪' + n(b.time) +
+    ' (₪' + n(b.perHour) + '/h)' + (b.minimumApplied ? ', raised to the ₪' + n(b.minimum) + ' minimum' : '');
+}
+
 function summaryText_(row, v) {
   return [
     'Submission ' + row.id + ' — ' + row.submitted,
@@ -352,7 +361,7 @@ function summaryText_(row, v) {
     'Pieces in total: ' + row.copies + ' (' + row.plates + ' plate' + (row.plates > 1 ? 's' : '') + ')',
     'Supports: ' + row.supports,
     'Estimated time: ' + row.estMinutes + ' min',
-    'Estimated cost: ₪' + row.estCost,
+    'Estimated cost: ₪' + row.estCost + (v.costText ? ' — ' + v.costText : ''),
     'Estimated filament: ' + row.grams + ' g',
     'Objects (size in mm as oriented):',
   ].concat(v.objects.map(function (o) {

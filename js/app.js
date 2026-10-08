@@ -13,6 +13,7 @@ import { buildProject3MF } from './export3mf.js';
 import { Viewer } from './viewer.js';
 import { submitPrint } from './submit.js';
 import { initTooltips } from './tooltip.js';
+import { plateCost, submissionPrice } from './pricing.js';
 
 const $ = (id) => document.getElementById(id);
 const he = (text) => `<span class="he" lang="he" dir="rtl">${text}</span>`;
@@ -775,7 +776,7 @@ function totals() {
     plates: res.length,
     seconds: sum((r) => r.seconds),
     minutes: sum((r) => r.minutes),
-    cost: sum((r) => r.cost),
+    price: submissionPrice(res, CONFIG.pricing),
     grams: sum((r) => r.grams),
     meters: sum((r) => r.meters),
     layers: Math.max(0, ...res.map((r) => r.layers)),
@@ -881,7 +882,7 @@ function onSliced(result, job) {
     p.seconds *= k;
     p.byFeature = p.byFeature.map((s) => s * k);
     p.minutes = Math.ceil(p.seconds / 60);
-    p.cost = p.minutes * CONFIG.pricePerMinute;
+    p.cost = plateCost(p, CONFIG.pricing).cost;
     p.hasSupport = p.items.some((it) => result.objects[it.key]?.hasSupport);
     state.results.set(job.sigs[i], p);
   });
@@ -904,11 +905,17 @@ function renderEstimate() {
   const money = (v) => `${CONFIG.currency}${fmtMoney(v)}`;
   $('estTotalLabel').hidden = used.length < 2;
   $('estTime').textContent = fmtDuration(t.seconds);
-  $('estCost').textContent = money(t.cost);
-  $('estRate').innerHTML = missing.length
-    ? `<span class="est-missing">Plate ${missing.join(', ')} not sliced yet: press <b>Slice all plates</b> for the full total.
-        ${he(`משטח ${missing.join(', ')} עדיין לא נפרס: לחצו ״פריסת כל המשטחים״ לסכום המלא.`)}</span>`
-    : `${t.minutes} min × ${money(CONFIG.pricePerMinute)} / min`;
+  const pr = t.price, rate = CONFIG.pricing;
+  $('estCost').textContent = money(pr.total);
+  // How the price is made up.
+  const rateOf = (v) => `${CONFIG.currency}${+v.toFixed(2)}`; // ₪0.05, ₪5
+  $('estRate').innerHTML = `<div class="price-line"><span>Material ${he('חומר')}</span><b>${money(pr.material)}</b>
+      <small>${fmt(t.grams, 1)} g × ${rateOf(rate.perGram)}/g</small></div>
+    <div class="price-line"><span>Printing time ${he('זמן הדפסה')}</span><b>${money(pr.time)}</b>
+      <small>${fmt(t.seconds / 3600, 2)} h × ${rateOf(rate.perHour)}/h</small></div>
+    ${pr.minimumApplied ? `<div class="price-min">Minimum charge of ${money(pr.minimum)} per print applies.${he(`חל מחיר מינימום של ${money(pr.minimum)} להדפסה.`)}</div>` : ''}
+    ${missing.length ? `<div class="est-missing">Plate ${missing.join(', ')} not sliced yet: press <b>Slice all plates</b> for the full total.
+        ${he(`משטח ${missing.join(', ')} עדיין לא נפרס: לחצו ״פריסת כל המשטחים״ לסכום המלא.`)}</div>` : ''}`;
   // Summary per plate, with the total across plates.
   const table = $('estPlates');
   table.hidden = used.length < 2;
@@ -918,7 +925,8 @@ function renderEstimate() {
         <td>Plate ${index + 1}</td>
         ${r ? `<td class="num-col">${fmtDuration(r.seconds)}</td><td class="num-col">${money(r.cost)}</td>`
     : `<td class="num-col muted" colspan="2">not sliced · לא נפרס</td>`}</tr>`).join('')}
-        <tr class="total"><td>Total${he('סה״כ')}</td><td class="num-col">${fmtDuration(t.seconds)}</td><td class="num-col">${money(t.cost)}</td></tr>
+        ${pr.minimumApplied ? `<tr class="min"><td colspan="2">Minimum charge${he('מחיר מינימום')}</td><td class="num-col">${money(pr.minimum)}</td></tr>` : ''}
+        <tr class="total"><td>Total${he('סה״כ')}</td><td class="num-col">${fmtDuration(t.seconds)}</td><td class="num-col">${money(pr.total)}</td></tr>
       </table>`;
   }
   const rows = [
@@ -999,7 +1007,7 @@ function updateOrderSummary() {
   parts.push(profileLabel(state.profile), state.color);
   if (allSliced()) {
     const t = totals();
-    parts.push(`${fmtDuration(t.seconds)} · ${CONFIG.currency}${fmtMoney(t.cost)}`);
+    parts.push(`${fmtDuration(t.seconds)} · ${CONFIG.currency}${fmtMoney(t.price.total)}`);
   }
   $('orderSummary').textContent = parts.join(' · ');
 }
@@ -1101,8 +1109,8 @@ async function onSubmit(e) {
     plates: t.plates,
     plateLayout: plateLayout(),
     estimatedMinutes: t.minutes,
-    estimatedCost: t.cost,
-    pricePerMinute: CONFIG.pricePerMinute,
+    estimatedCost: t.price.total,
+    costBreakdown: { ...t.price, perGram: CONFIG.pricing.perGram, perHour: CONFIG.pricing.perHour },
     filamentGrams: Math.round(t.grams * 10) / 10,
     layers: t.layers,
     supports: t.hasSupport,
