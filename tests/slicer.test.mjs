@@ -246,6 +246,19 @@ test('arranging helpers: footprints, overlap, free spots, clamping', () => {
   assert.deepEqual(clampToPlate(-10, 300, { x: 20, y: 20 }), { x: 10, y: PLATE.depth - 10 });
 });
 
+test('pricing: material + time, ₪10 minimum per submission', async () => {
+  const { submissionPrice, plateCost } = await import('../js/pricing.js');
+  const rate = { perGram: 0.05, perHour: 5, minimum: 10 };
+  assert.deepEqual(plateCost({ grams: 100, seconds: 7200 }, rate), { material: 5, time: 10, cost: 15 });
+  const big = submissionPrice([{ grams: 100, seconds: 7200 }, { grams: 40, seconds: 1800 }], rate);
+  assert.deepEqual(big, { material: 7, time: 12.5, subtotal: 19.5, minimum: 10, minimumApplied: false, total: 19.5 });
+  const small = submissionPrice([{ grams: 5.4, seconds: 1320 }], rate); // 0.27 + 1.83
+  assert.equal(small.subtotal, 2.1);
+  assert.equal(small.minimumApplied, true);
+  assert.equal(small.total, 10);
+  assert.equal(submissionPrice([], rate).total, 0);
+});
+
 test('STL binary and ASCII parse to the same triangles', () => {
   const tri = fx.box(1, 2, 3);
   const bin = parseSTL(toBinarySTL(fx.f32(tri)));

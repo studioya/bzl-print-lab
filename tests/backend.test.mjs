@@ -9,7 +9,7 @@ const order = { files: ['part.stl', 'bracket.3mf'], profile: 'Normal - Bezalel M
     { name: 'part.stl', file: 'part.stl', copies: 3, sizeMm: '40 × 20 × 10', unitScale: 1, rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
     { name: 'bracket.3mf – part 2', file: 'bracket.3mf', copies: 1, sizeMm: '12 × 8 × 5', unitScale: 10, scalePercent: 150, rotation: [1, 0, 0, 0, 0, -1, 0, 1, 0] },
   ],
-  plates: 2, plateLayout: [['part.stl ×2', 'bracket.3mf – part 2 ×1'], ['part.stl ×1']], estimatedMinutes: 95, estimatedCost: 47.5, filamentGrams: 31.2, supports: true, secondsOnPage: 60 };
+  plates: 2, plateLayout: [['part.stl ×2', 'bracket.3mf – part 2 ×1'], ['part.stl ×1']], estimatedMinutes: 95, estimatedCost: 10, costBreakdown: { material: 1.56, time: 7.92, subtotal: 9.48, minimum: 10, minimumApplied: true, total: 10, perGram: 0.05, perHour: 5 }, filamentGrams: 31.2, supports: true, secondsOnPage: 60 };
 
 test('begin → file → finish stores files, logs the row and emails the student', () => {
   const b = loadBackend();
@@ -39,6 +39,7 @@ test('begin → file → finish stores files, logs the row and emails the studen
   const names = b.drive.files.filter((f) => f.folder === sub).map((f) => f.name);
   assert.equal(names.length, 4); // details.txt + 2 originals + plates 3MF
   const txt = b.drive.files.find((f) => f.folder === sub && f.name.endsWith('details.txt')).content;
+  assert.match(txt, /Estimated cost: ₪10 — material ₪1\.56 \(₪0\.05\/g\) \+ printing time ₪7\.92 \(₪5\/h\), raised to the ₪10 minimum/);
   assert.match(txt, /Plate 1: part\.stl ×2, bracket\.3mf – part 2 ×1\n  Plate 2: part\.stl ×1/);
   assert.match(txt, /bracket\.3mf – part 2 ×1 — 12 × 8 × 5 mm, from bracket\.3mf, file units ×10, resized to 150%/);
 });
