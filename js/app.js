@@ -12,6 +12,7 @@ import { arrangePlates, fitsPlate, footprint, hullsOverlap, clampToPlate, onPlat
 import { buildProject3MF } from './export3mf.js';
 import { Viewer } from './viewer.js';
 import { submitPrint } from './submit.js';
+import { initTooltips } from './tooltip.js';
 
 const $ = (id) => document.getElementById(id);
 const he = (text) => `<span class="he" lang="he" dir="rtl">${text}</span>`;
@@ -127,8 +128,8 @@ function initProfiles() {
       <input type="radio" name="profile" value="${p.name}" aria-describedby="profileTip${i}">
       <span class="p-name">${p.label}${info.he ? he(info.he) : ''}</span>
       <span class="p-tip" role="tooltip" id="profileTip${i}">
-        <span class="p-spec">${spec}</span>
-        ${info.descEn ? `<span class="p-desc">${info.descEn}${he(info.descHe || '')}</span>` : ''}
+        <span class="p-spec">${p.label}</span>
+        <span class="p-desc"><span class="p-specs">${spec}</span>${info.descEn || ''}${info.descHe ? he(`<b>${info.he || p.label}.</b> ${info.descHe}`) : ''}</span>
       </span>`;
     const input = label.querySelector('input');
     input.checked = p.name === state.profile;
@@ -627,20 +628,22 @@ function renderObjectList() {
   const ul = $('objectList');
   if (!state.objects.length) { ul.innerHTML = ''; return; }
   const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  ul.innerHTML = `<li class="obj-head"><span>Objects ${he('אובייקטים')}</span><span>Copies ${he('עותקים')}</span></li>` +
+  ul.innerHTML = `<li class="obj-head"><span>Objects ${he('אובייקטים')}</span></li>` +
     state.objects.map((o) => {
       const s = o.oriented.size;
       return `<li class="obj${o.key === state.selected ? ' selected' : ''}${o.fits ? '' : ' bad'}" data-key="${o.key}">
-        <span class="obj-name" title="${esc(o.name)}">${esc(o.name)}</span>
+        <span class="obj-name">${esc(o.name)}</span>
         <span class="obj-meta">${fmt(s.x, 1)} × ${fmt(s.y, 1)} × ${fmt(s.z, 1)} mm${o.fits ? '' : ` · <span class="bad-note">Too big · גדול מדי</span>`}</span>
         <div class="obj-actions">
-          <div class="stepper">
+          <span class="obj-copies-label">Copies${he('עותקים')}</span>
+          <div class="stepper" data-tip="Copies" data-tip-desc="How many of this object to print, up to ${CONFIG.maxCopies}. New copies are placed in a free spot." data-tip-he="עותקים. כמה עותקים להדפיס מהאובייקט, עד ${CONFIG.maxCopies}. עותקים חדשים מוצבים במקום פנוי.">
             <button type="button" data-act="dec" aria-label="Fewer copies">−</button>
             <input type="number" min="1" max="${CONFIG.maxCopies}" value="${copiesOf(o.key)}" inputmode="numeric" aria-label="Copies of ${esc(o.name)}">
             <button type="button" data-act="inc" aria-label="More copies">+</button>
           </div>
-          <button type="button" class="icon-btn" data-act="split" title="Split into separate parts · פיצול לחלקים">Split</button>
-          <button type="button" class="icon-btn danger" data-act="remove" title="Remove from plate · הסרה מהמשטח" aria-label="Remove ${esc(o.name)}">✕</button>
+          <span class="obj-spacer"></span>
+          <button type="button" class="icon-btn" data-act="split" data-tip="Split to parts" data-tip-desc="Separates the file into its disconnected parts, each a separate object (like Bambu Studio's Split → To objects)." data-tip-he="פיצול לחלקים. מפריד את הקובץ לחלקים הנפרדים שלו, כל אחד כאובייקט נפרד.">Split</button>
+          <button type="button" class="icon-btn danger" data-act="remove" data-tip="Remove" data-tip-desc="Removes this object and all its copies from the plates." data-tip-he="הסרה. מסיר את האובייקט ואת כל העותקים שלו מהמשטחים." aria-label="Remove ${esc(o.name)}">✕</button>
         </div>
       </li>`;
     }).join('');
@@ -710,8 +713,8 @@ function renderPlateTabs() {
     const tab = document.createElement('span');
     const bad = pl.some((p) => state.issues.has(p.id));
     tab.className = `plate-tab${i === state.plateIndex ? ' active' : ''}${bad ? ' bad' : ''}`;
-    tab.innerHTML = `<button type="button" class="plate-pick" title="Show plate ${i + 1}">Plate ${i + 1} <span class="plate-count">${pl.length}</span></button>`
-      + (state.plates.length > 1 ? `<button type="button" class="plate-del" title="Delete plate ${i + 1} · מחיקת המשטח" aria-label="Delete plate ${i + 1}">✕</button>` : '');
+    tab.innerHTML = `<button type="button" class="plate-pick">Plate ${i + 1} <span class="plate-count">${pl.length}</span></button>`
+      + (state.plates.length > 1 ? `<button type="button" class="plate-del" data-tip="Delete plate ${i + 1}" data-tip-desc="Deletes the plate and the pieces on it." data-tip-he="מחיקת משטח ${i + 1} והחלקים שעליו." aria-label="Delete plate ${i + 1}">✕</button>` : '');
     tab.querySelector('.plate-pick').addEventListener('click', () => showPlate(i));
     tab.querySelector('.plate-del')?.addEventListener('click', () => deletePlate(i));
     box.appendChild(tab);
@@ -1148,6 +1151,7 @@ function fmtDuration(sec) {
   return h ? `${h}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
 }
 
+initTooltips();
 initProfiles();
 initControls();
 renderSelected();

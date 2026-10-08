@@ -38,7 +38,7 @@
           </label>
           <div class="error dismissable" id="loadError" role="alert" hidden>
             <div class="msg" id="loadErrorMsg"></div>
-            <button type="button" class="dismiss" data-dismiss="loadError" aria-label="Dismiss message" title="Dismiss · סגירה">✕</button>
+            <button type="button" class="dismiss" data-dismiss="loadError" aria-label="Dismiss message" data-tip="Dismiss" data-tip-he="סגירה">✕</button>
           </div>
           <ul class="object-list" id="objectList" aria-label="Objects on the plate"></ul>
           <div class="selected-panel" id="selectedPanel" hidden>
@@ -81,31 +81,31 @@
           <h2><span class="num">3</span> Orientation &amp; size <span class="he" lang="he" dir="rtl">כיוון וגודל</span></h2>
           <p class="orient-target" id="orientTarget">Select an object to orient it.
             <span class="he" lang="he" dir="rtl">בחרו אובייקט כדי לכוון אותו.</span></p>
-          <div class="orient-tools" title="Orientation changes supports, strength and time · הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה">
+          <div class="orient-tools">
             <div class="tool-row">
-              <button type="button" class="tool wide" id="autoOrient" disabled>Auto-orient <span class="he" lang="he" dir="rtl">כיוון אוטומטי</span></button>
-              <button type="button" class="tool wide" id="layFlat" disabled>Lay on face <span class="he" lang="he" dir="rtl">הנחה על פאה</span></button>
-              <button type="button" class="tool wide subtle" id="resetOrient" disabled>Reset <span class="he" lang="he" dir="rtl">איפוס</span></button>
+              <button type="button" class="tool wide" id="autoOrient" data-tip="Auto-orient" data-tip-desc="Turns the object to the orientation that needs the least support and sits most stably on the plate." data-tip-he="כיוון אוטומטי. מסובב את האובייקט לכיוון שדורש הכי מעט תמיכות ויציב על המשטח." disabled>Auto-orient <span class="he" lang="he" dir="rtl">כיוון אוטומטי</span></button>
+              <button type="button" class="tool wide" id="layFlat" data-tip="Lay on face" data-tip-desc="Click a face of the model and it is turned to lie flat on that face." data-tip-he="הנחה על פאה. לחצו על פאה של המודל והוא יונח עליה על המשטח." disabled>Lay on face <span class="he" lang="he" dir="rtl">הנחה על פאה</span></button>
+              <button type="button" class="tool wide subtle" id="resetOrient" data-tip="Reset orientation" data-tip-desc="Back to the orientation of the original file." data-tip-he="איפוס הכיוון. חזרה לכיוון של הקובץ המקורי." disabled>Reset <span class="he" lang="he" dir="rtl">איפוס</span></button>
             </div>
             <div class="rot-grid" role="group" aria-label="Rotate">
               <span class="axis x">X</span><span class="axis y">Y</span><span class="axis z">Z</span>
-              <button type="button" class="tool" data-rot="x:-90" disabled title="Rotate −90° around X">↺ 90°</button>
-              <button type="button" class="tool" data-rot="y:-90" disabled title="Rotate −90° around Y">↺ 90°</button>
-              <button type="button" class="tool" data-rot="z:-45" disabled title="Rotate −45° around Z">↺ 45°</button>
-              <button type="button" class="tool" data-rot="x:90" disabled title="Rotate 90° around X">↻ 90°</button>
-              <button type="button" class="tool" data-rot="y:90" disabled title="Rotate 90° around Y">↻ 90°</button>
-              <button type="button" class="tool" data-rot="z:45" disabled title="Rotate 45° around Z">↻ 45°</button>
+              <button type="button" class="tool" data-rot="x:-90" disabled data-tip="Rotate −90° around X" data-tip-desc="Orientation changes supports, strength and print time." data-tip-he="סיבוב 90° סביב ציר X בכיוון ההפוך. הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה.">↺ 90°</button>
+              <button type="button" class="tool" data-rot="y:-90" disabled data-tip="Rotate −90° around Y" data-tip-desc="Orientation changes supports, strength and print time." data-tip-he="סיבוב 90° סביב ציר Y בכיוון ההפוך. הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה.">↺ 90°</button>
+              <button type="button" class="tool" data-rot="z:-45" disabled data-tip="Rotate −45° around Z" data-tip-desc="Orientation changes supports, strength and print time." data-tip-he="סיבוב 45° סביב ציר Z בכיוון ההפוך. הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה.">↺ 45°</button>
+              <button type="button" class="tool" data-rot="x:90" disabled data-tip="Rotate 90° around X" data-tip-desc="Orientation changes supports, strength and print time." data-tip-he="סיבוב 90° סביב ציר X. הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה.">↻ 90°</button>
+              <button type="button" class="tool" data-rot="y:90" disabled data-tip="Rotate 90° around Y" data-tip-desc="Orientation changes supports, strength and print time." data-tip-he="סיבוב 90° סביב ציר Y. הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה.">↻ 90°</button>
+              <button type="button" class="tool" data-rot="z:45" disabled data-tip="Rotate 45° around Z" data-tip-desc="Orientation changes supports, strength and print time." data-tip-he="סיבוב 45° סביב ציר Z. הכיוון משפיע על התמיכות, החוזק וזמן ההדפסה.">↻ 45°</button>
             </div>
           </div>
-          <div class="size-tools" id="sizeTools" hidden title="Scaling keeps the proportions · שינוי הגודל שומר על הפרופורציות">
+          <div class="size-tools" id="sizeTools" hidden>
             <div class="size-grid" role="group" aria-label="Scale and size in millimetres">
               <span class="size-label">Scale % · size mm <span class="he" lang="he" dir="rtl">קנה מידה · מידות</span></span>
-              <label class="axis-input"><span class="axis">%</span><input type="number" id="scalePct" min="1" max="1000" step="1" inputmode="decimal" aria-label="Scale percent"></label>
-              <label class="axis-input"><span class="axis x">X</span><input type="number" id="sizeX" min="0.1" step="0.1" inputmode="decimal"></label>
-              <label class="axis-input"><span class="axis y">Y</span><input type="number" id="sizeY" min="0.1" step="0.1" inputmode="decimal"></label>
-              <label class="axis-input"><span class="axis z">Z</span><input type="number" id="sizeZ" min="0.1" step="0.1" inputmode="decimal"></label>
+              <label class="axis-input" data-tip="Scale" data-tip-desc="Size as a percentage of the file. Scaling always keeps the proportions." data-tip-he="קנה מידה באחוזים מגודל הקובץ. שינוי הגודל שומר תמיד על הפרופורציות."><span class="axis">%</span><input type="number" id="scalePct" min="1" max="1000" step="1" inputmode="decimal" aria-label="Scale percent"></label>
+              <label class="axis-input" data-tip="Size along X (mm)" data-tip-desc="Type a size and the other two change with it, keeping the proportions." data-tip-he="גודל בציר X במ״מ. שני הממדים האחרים משתנים יחד איתו, לשמירה על הפרופורציות."><span class="axis x">X</span><input type="number" id="sizeX" min="0.1" step="0.1" inputmode="decimal"></label>
+              <label class="axis-input" data-tip="Size along Y (mm)" data-tip-desc="Type a size and the other two change with it, keeping the proportions." data-tip-he="גודל בציר Y במ״מ. שני הממדים האחרים משתנים יחד איתו, לשמירה על הפרופורציות."><span class="axis y">Y</span><input type="number" id="sizeY" min="0.1" step="0.1" inputmode="decimal"></label>
+              <label class="axis-input" data-tip="Size along Z (mm)" data-tip-desc="Type a size and the other two change with it, keeping the proportions." data-tip-he="גודל בציר Z במ״מ. שני הממדים האחרים משתנים יחד איתו, לשמירה על הפרופורציות."><span class="axis z">Z</span><input type="number" id="sizeZ" min="0.1" step="0.1" inputmode="decimal"></label>
             </div>
-            <button type="button" class="tool wide" id="fitToPlate" hidden>Scale to fit the plate <span class="he" lang="he" dir="rtl">הקטנה כך שייכנס למשטח</span></button>
+            <button type="button" class="tool wide" id="fitToPlate" data-tip="Scale to fit the plate" data-tip-desc="Shrinks the object, keeping its proportions, until it fits the printer." data-tip-he="הקטנה כך שייכנס למשטח. מקטין את האובייקט, תוך שמירה על הפרופורציות, עד שייכנס למדפסת." hidden>Scale to fit the plate <span class="he" lang="he" dir="rtl">הקטנה כך שייכנס למשטח</span></button>
           </div>
           <div class="fit" id="fitStatus" hidden></div>
         </div>
@@ -131,21 +131,21 @@
         </div>
         <div class="plate-bar" id="plateBar" hidden>
           <div class="plate-tabs" id="plateTabs"></div>
-          <span class="has-tip ">
+          <span class="has-tip">
             <button type="button" class="plate-add" id="addPlate">+ Plate <span class="he" lang="he" dir="rtl">משטח</span></button>
             <span class="p-tip" role="tooltip"><span class="p-spec">Add a plate</span><span class="p-desc">Adds an empty build plate. Move pieces onto it with “Move piece to…”.<span class="he" lang="he" dir="rtl"><b>הוספת משטח.</b> מוסיף משטח הדפסה ריק. העבירו אליו חלקים עם ״העברה ל…״.</span></span></span>
           </span>
           <div class="plate-tools">
             <select id="moveTo" aria-label="Move the selected piece to another plate"></select>
-  <span class="has-tip tip-below tip-right">
+  <span class="has-tip">
             <button type="button" class="icon-btn" id="centerPlate">Center <span class="he" lang="he" dir="rtl">מרכוז</span></button>
             <span class="p-tip" role="tooltip"><span class="p-spec">Center on the plate</span><span class="p-desc">Moves all the pieces on this plate together to the middle of the plate, keeping how you arranged them.<span class="he" lang="he" dir="rtl"><b>מרכוז על המשטח.</b> מזיז את כל החלקים במשטח יחד למרכז המשטח, בלי לשנות את הסידור שלכם.</span></span></span>
           </span>
-            <span class="has-tip tip-below tip-right">
+            <span class="has-tip">
             <button type="button" class="icon-btn" id="arrangePlate">Arrange <span class="he" lang="he" dir="rtl">סידור</span></button>
             <span class="p-tip" role="tooltip"><span class="p-spec">Arrange this plate</span><span class="p-desc">Packs the pieces on this plate automatically, with room for brims. Pieces that don’t fit move to a new plate.<span class="he" lang="he" dir="rtl"><b>סידור המשטח הזה.</b> מסדר את החלקים במשטח באופן אוטומטי, עם מרווח לשוליים. חלקים שלא נכנסים עוברים למשטח חדש.</span></span></span>
           </span>
-  <span class="has-tip tip-below tip-right">
+  <span class="has-tip">
             <button type="button" class="icon-btn" id="arrangeAll">Arrange all <span class="he" lang="he" dir="rtl">סידור הכול</span></button>
             <span class="p-tip" role="tooltip"><span class="p-spec">Arrange all plates</span><span class="p-desc">Re-packs every piece on every plate onto as few plates as possible. Your own placement is replaced.<span class="he" lang="he" dir="rtl"><b>סידור כל המשטחים.</b> מסדר מחדש את כל החלקים על כמה שפחות משטחים. הסידור הידני שלכם יוחלף.</span></span></span>
           </span>
@@ -260,7 +260,7 @@
           <button type="submit" class="primary big" id="submitBtn" disabled>Submit for printing <span class="he" lang="he" dir="rtl">שליחה להדפסה</span></button>
           <div class="submit-status" id="submitStatus" role="status">
             <span class="msg" id="submitStatusMsg"></span>
-            <button type="button" class="dismiss" id="submitStatusDismiss" hidden aria-label="Dismiss message" title="Dismiss · סגירה">✕</button>
+            <button type="button" class="dismiss" id="submitStatusDismiss" hidden aria-label="Dismiss message" data-tip="Dismiss" data-tip-he="סגירה">✕</button>
           </div>
         </div>
         <p class="hint" id="submitHint">Upload your model and slice all plates to enable submission.
