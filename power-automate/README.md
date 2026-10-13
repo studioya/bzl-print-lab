@@ -38,9 +38,20 @@ Build it once, signed in to the Microsoft 365 account that should own the files.
 In [Power Automate](https://make.powerautomate.com): **Create → Instant cloud flow → Skip**, and name it
 `BZL Print Lab submissions`.
 
-Wherever a step below says **expression**, click the field, choose **Insert expression** (the *fx*
-button), paste the expression and click **Add**. Rename steps with **⋯ → Rename**; the names matter,
-because later expressions refer to them.
+Wherever a step below says **expression**, don't type or paste it straight into the field (it would
+be saved as plain text). Instead:
+
+1. Click into the field. Two small buttons appear at its right end: a lightning bolt
+   (*dynamic content*) and **fx** (*expression*). You can also type `/` in the field and choose
+   **Insert expression**.
+2. Click **fx**. A panel opens with a box at the top.
+3. Paste the expression into that box (without any `=` or `@` in front) and click **Add**.
+4. The field now shows a coloured token with the start of the expression, e.g. `concat(...)`.
+   Click the token to see or edit it. If the expression has a typo, the panel shows an error instead
+   of adding it.
+
+Rename steps with **⋯ → Rename**. The names matter, because later expressions refer to them: use
+exactly the names given here (**BaseFolder**, **Submission**), with no spaces.
 
 ### Trigger: When an HTTP request is received
 
@@ -48,7 +59,7 @@ because later expressions refer to them.
 - **Request Body JSON Schema:** leave empty
 - Under **Advanced parameters → Method:** POST
 
-### Step 1: Compose, renamed **Base folder**
+### Step 1: Compose, renamed **BaseFolder**
 
 **Inputs** (expression):
 
@@ -83,7 +94,7 @@ and(not(empty(triggerOutputs()?['queries']?['folder'])), not(contains(triggerOut
 
    - **If yes:**
      1. **OneDrive for Business → Create file**
-        - **Folder Path** (expression): `outputs('Base folder')`
+        - **Folder Path** (expression): `outputs('BaseFolder')`
         - **File Name** (expression): `triggerOutputs()?['queries']?['name']`
         - **File Content** (expression): `triggerBody()`
      2. **Response**: status `200`, body `{"ok": true}`
@@ -98,7 +109,7 @@ and(not(empty(triggerOutputs()?['queries']?['folder'])), not(contains(triggerOut
    ```
 
 2. **OneDrive for Business → Create file**
-   - **Folder Path** (expression): `outputs('Base folder')`
+   - **Folder Path** (expression): `outputs('BaseFolder')`
    - **File Name** (expression): `concat(outputs('Submission')?['row']?['id'], ' – details.txt')`
    - **File Content** (expression): `outputs('Submission')?['detailsText']`
 
