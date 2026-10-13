@@ -20,12 +20,8 @@ A single web page where students:
    `STUDENT 3D SUBMISSIONS`, the details go into a Google Sheet with a Status column, and the
    student gets a confirmation email.
 
-Everything except the submission runs in the student's browser. There is no server to maintain.
-Submissions go to one of two backends, whichever is set in `js/config.js`:
-
-- **Microsoft 365** (recommended): a Power Automate flow saves the files in OneDrive and logs each
-  submission in an Excel workbook with a built-in dashboard. Setup: [`power-automate/README.md`](power-automate/README.md).
-- **Google**: a free Google Apps Script saves to Google Drive and a Google Sheet (setup below).
+Everything except the submission runs in the student's browser. There is no server to maintain;
+the only backend is a free Google Apps Script attached to the lab's Google account.
 
 ```
 index.html, css/, js/       the page (static, hosted on GitHub Pages)
@@ -35,7 +31,6 @@ js/profile-info.js          student-facing profile names + descriptions (EN/HE)
 js/profiles-data.js         GENERATED from profiles/ — don't edit by hand
 js/project-presets.js       GENERATED from profiles/ — full presets for the Bambu project file
 profiles/                   lab .bbscfg export + Bambu's base presets it inherits from
-power-automate/             Microsoft 365 backend: flow setup guide + Excel log/dashboard workbook
 apps-script/                Google Apps Script backend (Drive + Sheet + email)
 tools/                      profile resolver, vendored-library rebuild script
 tests/                      Node tests (slicer, loaders, backend with mocked Google services)
@@ -56,12 +51,7 @@ fonts/                      Abraham (Bezalel's typeface, by Daniel Grumer), web 
 The page works as soon as it's hosted; until step 2 is done, **Submit** shows a message that
 submissions aren't set up yet.
 
-### 2. Deploy the submission backend
-
-**Microsoft 365:** follow [`power-automate/README.md`](power-automate/README.md), then set
-`powerAutomateUrl` in `js/config.js`. Skip the rest of this section.
-
-**Google (Apps Script):**
+### 2. Deploy the submission backend (Google Apps Script)
 
 Do this **while signed in to the lab's Google account**. Files and the Sheet are created in that
 account's Drive, and confirmation emails are sent from it.
@@ -130,8 +120,7 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 
 | Setting | Default | |
 |---|---|---|
-| `powerAutomateUrl` | `''` | HTTP URL of the Power Automate flow (used when set) |
-| `appsScriptUrl` | `''` | Google Apps Script web app URL (used when `powerAutomateUrl` is empty) |
+| `appsScriptUrl` | `''` | Web app URL from step 2.7 |
 | `centers` | main, architecture | The "Send to" choices (English/Hebrew names). A center can have its own `appsScriptUrl` |
 | `pricing.perGram` | `0.05` | ₪ per gram of filament |
 | `pricing.perHour` | `5` | ₪ per hour of estimated printing time; warm-up/prepare time is not charged |

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildRecord, safeName, costText } from '../js/record.js';
+import { buildRecord, safeName, costText } from './record.js';
 
 const details = { name: 'Dana <Levi>', idNumber: '012345678', email: 'Dana@Example.com', phone: '050-1234567',
   department: 'Industrial Design', course: 'Studio 2', deadline: '2026-11-01', notes: '' };
