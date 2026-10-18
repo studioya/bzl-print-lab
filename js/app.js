@@ -158,8 +158,9 @@ function initProfiles() {
   });
 }
 
-/** "Send to" choice: one card per modelling center (none chosen at first). */
+/** "Send to" choice: one card per modelling center (none chosen at first). Hidden when there's only one. */
 function initCenters() {
+  $('fCenter').hidden = (CONFIG.centers || []).length < 2;
   $('centerOptions').innerHTML = (CONFIG.centers || []).map((c) => `
     <label class="center-option"><input type="radio" name="center" value="${c.id}">
       <span><b>${c.en}</b>${he(c.he)}</span></label>`).join('');
@@ -168,7 +169,11 @@ function initCenters() {
     updateOrderSummary();
   });
 }
-const chosenCenter = () => (CONFIG.centers || []).find((c) => c.id === document.querySelector('input[name=center]:checked')?.value) || null;
+const chosenCenter = () => {
+  const centers = CONFIG.centers || [];
+  if (centers.length === 1) return centers[0];
+  return centers.find((c) => c.id === document.querySelector('input[name=center]:checked')?.value) || null;
+};
 
 function initControls() {
   document.querySelectorAll('[data-max-mb]').forEach((el) => { el.textContent = CONFIG.maxFileMB; });
@@ -329,7 +334,7 @@ async function handleFiles(files) {
       break;
     }
     if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      errors.push([`${file.name}: unsupported file type. Please upload STL, OBJ or 3MF.`, `${file.name}: סוג קובץ לא נתמך. יש להעלות STL, OBJ או 3MF.`]);
+      errors.push([`${file.name}: unsupported file type. Please upload STL, OBJ, 3MF or STEP.`, `${file.name}: סוג קובץ לא נתמך. יש להעלות STL, OBJ, 3MF או STEP.`]);
       continue;
     }
     if (file.size > CONFIG.maxFileMB * 1024 * 1024) {
@@ -342,7 +347,17 @@ async function handleFiles(files) {
       break;
     }
     try {
-      const positions = await loadModel(await file.arrayBuffer(), file.name);
+      // STEP files are converted from CAD geometry, which takes a few seconds.
+      const isStep = ['step', 'stp'].includes(ext);
+      $('loadingHint').hidden = false;
+      $('loadingHint').innerHTML = `Reading ${escapeHtml(file.name)}…${isStep ? ' STEP files take a few seconds.' : ''}`
+        + he(`קורא את ${escapeHtml(file.name)}…${isStep ? ' קבצי STEP דורשים מספר שניות.' : ''}`);
+      let positions;
+      try {
+        positions = await loadModel(await file.arrayBuffer(), file.name);
+      } finally {
+        $('loadingHint').hidden = true;
+      }
       const fileId = `f${state.nextKey++}`;
       state.files.push({ id: fileId, file });
       const o = newObject(fileId, file.name, positions);
@@ -1113,7 +1128,7 @@ function updateOrderSummary() {
   const n = state.objects.length, c = totalCopies();
   const parts = n ? [`${n} object${n > 1 ? 's' : ''}`, `${c} piece${c > 1 ? 's' : ''}`] : ['No models yet'];
   parts.push(profileLabel(state.profile), colorSummary());
-  if (chosenCenter()) parts.push(`→ ${chosenCenter().en}`);
+  if (chosenCenter() && CONFIG.centers.length > 1) parts.push(`→ ${chosenCenter().en}`);
   if (allSliced()) {
     const t = totals();
     parts.push(`${fmtDuration(t.seconds)} · ${CONFIG.currency}${fmtMoney(t.price.total)}`);

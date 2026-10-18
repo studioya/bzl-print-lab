@@ -396,3 +396,6 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
 .plate-tab .plate-rename:hover { color: var(--green-dark); }
 .plate-name-input { font-size: 13px; padding: 3px 6px; width: 170px; border: 0; outline: 2px solid var(--green); border-radius: 6px; }
 .est-plates .plate-label { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loading-hint { font-size: 13px; color: var(--ink-2); background: #f4f6f7; border-radius: 6px; padding: 6px 8px; margin: 6px 0; }
+.loading-hint::before { content: ''; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border: 2px solid var(--green); border-right-color: transparent; border-radius: 50%; vertical-align: -1px; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

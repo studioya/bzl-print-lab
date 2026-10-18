@@ -2,6 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadBackend } from './apps-script-mock.mjs';
 
+const ARCHITECTURE = { NAME: 'Bezalel Architecture Modelling Center', NAME_HE: 'מרכז הדיגום של המחלקה לארכיטקטורה',
+  FOLDER_NAME: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE', SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE – Log', FOLDER_ID: '', SHEET_ID: '', NOTIFY_EMAIL: '' };
+
 const details = { name: 'Dana Levi', idNumber: '012345678', email: 'dana@example.com', phone: '050-1234567',
   department: 'Industrial Design', course: 'Studio 2', deadline: '2026-11-01', notes: 'Please print soon', website: '' };
 const order = { files: ['part.stl', 'bracket.3mf'], profile: 'Normal - Bezalel Modelling Center', profileLabel: 'Normal', color: 'Black (plate 1), White (plate 2)', plateColors: ['Black', 'White'], plateNames: ['Base', ''], center: 'main', copies: 4,
@@ -27,17 +30,18 @@ test('begin → file → finish stores files, logs the row and emails the studen
   const data = Buffer.from('solid x\nendsolid x\n').toString('base64');
   assert.equal(b.call({ action: 'file', id: r1.id, token: r1.token, name: 'part.stl', kind: 'original', data }).ok, true);
   assert.equal(b.call({ action: 'file', id: r1.id, token: r1.token, name: 'bracket.3mf', kind: 'original', data }).ok, true);
+  assert.equal(b.call({ action: 'file', id: r1.id, token: r1.token, name: 'housing.step', kind: 'original', data }).ok, true, 'STEP originals allowed');
   assert.equal(b.call({ action: 'file', id: r1.id, token: r1.token, name: 'plates.3mf', kind: 'plates', data }).ok, true);
   const r3 = b.call({ action: 'finish', id: r1.id, token: r1.token });
   assert.equal(r3.ok, true, JSON.stringify(r3));
   assert.equal(b.sheetRows[1][2], 'New');
-  assert.match(b.sheetRows[1][19], /ORIGINAL – part\.stl\nORIGINAL – bracket\.3mf\nPLATES – plates\.3mf/);
+  assert.match(b.sheetRows[1][19], /ORIGINAL – part\.stl\nORIGINAL – bracket\.3mf\nORIGINAL – housing\.step\nPLATES – plates\.3mf/);
   assert.equal(b.sheetRows[1][10], 4, 'pieces in total');
   assert.equal(b.sheetRows[1][17], 'part.stl ×3 (40 × 20 × 10)\nbracket.3mf – part 2 ×1 (12 × 8 × 5) scaled 150%');
   assert.equal(b.mails.length, 1);
   assert.equal(b.mails[0][0], 'dana@example.com');
   const names = b.drive.files.filter((f) => f.folder === sub).map((f) => f.name);
-  assert.equal(names.length, 4); // details.txt + 2 originals + plates 3MF
+  assert.equal(names.length, 5); // details.txt + 3 originals + plates 3MF
   const txt = b.drive.files.find((f) => f.folder === sub && f.name.endsWith('details.txt')).content;
   assert.match(txt, /Estimated cost: ₪10 — material ₪1\.56 \(₪0\.05\/g\) \+ printing time ₪7\.92 \(₪5\/h\) \+ ₪0\.52 to reach the ₪10 minimum per plate \(plate 2\)/);
   assert.match(txt, /Plate 1 "Base" \(Black\): part\.stl ×2, bracket\.3mf – part 2 ×1\n  Plate 2 \(White\): part\.stl ×1/);
@@ -64,6 +68,7 @@ test('rejects bad input, spam and wrong tokens', () => {
   assert.equal(b.call({ action: 'begin', details, order: { ...order, secondsOnPage: 1 } }).ok, false);
   assert.equal(b.call({ action: 'begin', details, order: { ...order, center: '' } }).ok, false, 'a center must be chosen');
   assert.equal(b.call({ action: 'begin', details, order: { ...order, center: 'nope' } }).ok, false);
+  assert.equal(b.call({ action: 'begin', details, order: { ...order, center: 'architecture' } }).ok, false, 'architecture is off');
   assert.equal(b.call({ action: 'begin', details, order: { ...order, plateColors: ['Red'] } }).ok, false);
   const r = b.call({ action: 'begin', details, order });
   assert.equal(b.call({ action: 'file', id: r.id, token: 'bad', name: 'a.stl', data: '' }).ok, false);
@@ -81,6 +86,7 @@ test('rate-limits repeated submissions from one email', () => {
 
 test('each modelling center gets its own folder and sheet', () => {
   const b = loadBackend();
+  b.settings.CENTERS.architecture = { ...ARCHITECTURE }; // switched off in Code.gs for now
   const data = Buffer.from('x').toString('base64');
   const send = (center, email) => {
     const r = b.call({ action: 'begin', details: { ...details, email }, order: { ...order, center } });
@@ -107,6 +113,7 @@ test('each modelling center gets its own folder and sheet', () => {
 
 test('a center can use an existing folder and Sheet (log goes on a Submissions tab)', () => {
   const b = loadBackend();
+  b.settings.CENTERS.architecture = { ...ARCHITECTURE };
   const folder = b.root.createFolder('Architecture prints');
   const existing = b.makeSpreadsheet('Arch lab sheet');
   existing.tabs[0].rows.push(['their own data']);

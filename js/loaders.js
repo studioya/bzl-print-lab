@@ -1,9 +1,10 @@
 // Model file loaders → triangle soup (Float32Array, 9 floats per triangle, mm).
-// Supports STL (binary + ASCII), OBJ and 3MF (incl. Bambu Studio's
-// multi-file 3MF layout with components). Only geometry is read; any print
-// settings, colours or plates stored in a 3MF are ignored.
+// Supports STL (binary + ASCII), OBJ, 3MF (incl. Bambu Studio's
+// multi-file 3MF layout with components) and STEP (via js/step.js). Only
+// geometry is read; any print settings, colours or plates stored in a 3MF
+// are ignored.
 
-export const ACCEPTED_EXTENSIONS = ['stl', 'obj', '3mf'];
+export const ACCEPTED_EXTENSIONS = ['stl', 'obj', '3mf', 'step', 'stp'];
 
 export function extensionOf(name) {
   const m = /\.([a-z0-9]+)$/i.exec(name || '');
@@ -16,12 +17,40 @@ export async function loadModel(buffer, fileName) {
   if (ext === 'stl') positions = parseSTL(buffer);
   else if (ext === 'obj') positions = parseOBJ(new TextDecoder().decode(buffer));
   else if (ext === '3mf') positions = await parse3MF(buffer);
+  else if (ext === 'step' || ext === 'stp') positions = await parseSTEPFile(buffer);
   else throw new LoadError('unsupported', `Unsupported file type ".${ext}"`);
   if (!positions.length) throw new LoadError('empty', 'The file contains no triangles');
   for (let i = 0; i < positions.length; i++) {
     if (!Number.isFinite(positions[i])) throw new LoadError('corrupt', 'The file contains invalid coordinates');
   }
   return positions;
+}
+
+// STEP files are converted in a worker (loaded on first use), so the page stays
+// responsive while OpenCascade works.
+let stepWorker = null;
+let stepJob = 0;
+function parseSTEPFile(buffer) {
+  if (typeof Worker === 'undefined') {
+    return import('./step.js').then((m) => m.parseSTEP(buffer)).catch((e) => { throw new LoadError('corrupt', e.message); });
+  }
+  stepWorker ||= new Worker(new URL('./step-worker.js', import.meta.url), { type: 'module' });
+  const id = ++stepJob;
+  return new Promise((resolve, reject) => {
+    const onMessage = (e) => {
+      if (e.data.id !== id) return;
+      stepWorker.removeEventListener('message', onMessage);
+      if (e.data.error) reject(new LoadError('corrupt', e.data.error));
+      else resolve(e.data.positions);
+    };
+    stepWorker.addEventListener('message', onMessage);
+    stepWorker.onerror = (e) => {
+      stepWorker.removeEventListener('message', onMessage);
+      stepWorker = null;
+      reject(new LoadError('corrupt', `STEP import failed in this browser${e?.message ? `: ${e.message}` : ''}`));
+    };
+    stepWorker.postMessage({ id, buffer });
+  });
 }
 
 export class LoadError extends Error {

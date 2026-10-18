@@ -2,7 +2,8 @@
 
 A single web page where students:
 
-1. add up to **5 model files** (**STL, OBJ or 3MF**, up to 25 MB each) to the plate,
+1. add up to **5 model files** (**STL, OBJ, 3MF or STEP**, up to 25 MB each) to the plate. STEP files
+   are converted to a fine mesh in the browser (0.01 mm tolerance) with OpenCascade,
 2. manage the **objects** on the plate like in Bambu Studio: **split** a file into its separate parts,
    **remove** objects, and set **copies** (1–10) per object,
 3. pick one of the lab's **Bambu Studio printing profiles**, and a colour (black/white) **for each plate**,
@@ -15,8 +16,8 @@ A single web page where students:
 6. **slice in the browser** with *Slice this plate* or *Slice all plates* and get a Bambu-style
    toolpath preview plus a **time and cost estimate**: the total across all plates and each plate's
    time and cost. A plate's result is kept until that plate changes; submitting needs every plate sliced,
-7. choose where to send it: **Bezalel Main Modelling Center** or **Bezalel Architecture Modelling
-   Center**, fill in their details and **submit**. The model lands in the lab's Google Drive folder
+7. fill in their details and **submit** (to the Bezalel Main Modelling Center; a second center, Architecture,
+   is prepared but switched off: uncomment it in `js/config.js` and `Code.gs` to offer the choice). The model lands in the lab's Google Drive folder
    `STUDENT 3D SUBMISSIONS`, the details go into a Google Sheet with a Status column, and the
    student gets a confirmation email.
 
@@ -67,7 +68,7 @@ account's Drive, and confirmation emails are sent from it.
      **Submissions**, created if missing; other tabs aren't touched.
    - `NOTIFY_EMAIL` (optional): emailed on every new submission to that center.
    - Optional for all: `LAB_NOTIFY_EMAIL` and `REPLY_TO` (where student replies go).
-   The center keys (`main`, `architecture`) must match `centers` in `js/config.js`.
+   The center keys must match `centers` in `js/config.js` (only `main` is active now).
 5. Choose the `setup` function in the toolbar and press **Run**. Approve the permission prompt
    (Google warns that the app is unverified. Click *Advanced → Go to … (unsafe)*: it's your own script).
    This finds or creates each center's folder and log Sheet; the execution log prints the links.
@@ -121,7 +122,7 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 | Setting | Default | |
 |---|---|---|
 | `appsScriptUrl` | `''` | Web app URL from step 2.7 |
-| `centers` | main, architecture | The "Send to" choices (English/Hebrew names). A center can have its own `appsScriptUrl` |
+| `centers` | main | The "Send to" choices, shown only when there are two or more (English/Hebrew names). A center can have its own `appsScriptUrl` |
 | `pricing.perGram` | `0.05` | ₪ per gram of filament |
 | `pricing.perHour` | `5` | ₪ per hour of estimated printing time; warm-up/prepare time is not charged |
 | `pricing.minimum` | `10` | ₪ minimum for each plate (a plate costing less is charged this) |
@@ -211,6 +212,7 @@ No build step: the page is plain ES modules.
 
 - [three.js](https://threejs.org) r186 — MIT
 - Abraham typeface by Daniel Grumer — Bezalel's licensed font, not for reuse outside this site
+- [occt-import-js](https://github.com/kovacsv/occt-import-js) 0.0.23 (OpenCascade for the browser, STEP import) — LGPL-2.1, in `vendor/occt/` (the library is unmodified, only wrapped as an ES module)
 - [Clipper](https://sourceforge.net/projects/jsclipper/) (JS port) 6.4.2 — Boost Software License
 - Base presets in `profiles/bambu-base/` are from [Bambu Studio](https://github.com/bambulab/BambuStudio) — AGPL-3.0
 - The gyroid wave generator follows PrusaSlicer/Bambu Studio's `FillGyroid` — AGPL-3.0
