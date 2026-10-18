@@ -276,6 +276,24 @@
     </section>
   </main>
 
+  <dialog id="layoutDialog" aria-labelledby="layoutTitle">
+    <form method="dialog" class="layout-ask">
+      <h2 id="layoutTitle">How should we lay out your model? <span class="he" lang="he" dir="rtl">איך לסדר את המודל?</span></h2>
+      <p class="layout-files" id="layoutFiles"></p>
+      <p>The site can turn your model to the best position for printing and place it on the plate for you,
+        or you can lay it out yourself (it starts as it is in your file).</p>
+      <p class="he" lang="he" dir="rtl">האתר יכול לסובב את המודל למצב הטוב ביותר להדפסה ולמקם אותו על המשטח בשבילכם,
+        או שתסדרו אותו בעצמכם (הוא יופיע כפי שהוא בקובץ).</p>
+      <p class="layout-note"><b>Please note:</b> your model will be printed the way you submit it here, although the lab
+        supervisors may change the placement at their discretion.
+        <span class="he" lang="he" dir="rtl"><b>שימו לב:</b> המודל יודפס כפי שתגישו אותו כאן, אך אחראי המעבדה רשאים לשנות את המיקום לפי שיקול דעתם.</span></p>
+      <div class="layout-choices">
+        <button type="submit" class="primary" value="site" autofocus>Lay it out for me <span class="he" lang="he" dir="rtl">סדרו בשבילי</span></button>
+        <button type="submit" class="secondary" value="student">I'll do it myself <span class="he" lang="he" dir="rtl">אסדר בעצמי</span></button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="doneDialog">
     <div class="done">
       <div class="done-icon" aria-hidden="true">✓</div>

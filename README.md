@@ -7,16 +7,21 @@ A single web page where students:
 2. manage the **objects** on the plate like in Bambu Studio: **split** a file into its separate parts,
    **remove** objects, and set **copies** (1–10) per object,
 3. pick one of the lab's **Bambu Studio printing profiles**, and a colour (black/white) **for each plate**,
-4. **orient** each object (auto-orient, lay on face, rotate) and **resize** it (scale %, size in mm,
+4. choose, each time they add files, whether **the site lays the model out** (auto-orient for printing
+   and placement on the plate) or **they do it themselves** (kept as in the file). The pop-up notes
+   that the model prints as submitted, though lab supervisors may change the placement. The choice is
+   recorded in the Sheet (*Laid out by*, and per object in *Objects*: site / student / site then
+   adjusted by the student) and in `details.txt`,
+5. **orient** each object (auto-orient, lay on face, rotate) and **resize** it (scale %, size in mm,
    or *Scale to fit the plate* for models that are too big),
-5. **arrange the plates** like in Bambu Studio: copies are placed automatically, then students can
+6. **arrange the plates** like in Bambu Studio: copies are placed automatically, then students can
    drag pieces around, add plates (*+ Plate*), move a piece to another plate, delete a plate, or press
    *Arrange* (this plate) / *Arrange all* (re-pack everything onto as few plates as possible).
    Pieces that overlap or stick out of the plate turn red and block slicing,
-6. **slice in the browser** with *Slice this plate* or *Slice all plates* and get a Bambu-style
+7. **slice in the browser** with *Slice this plate* or *Slice all plates* and get a Bambu-style
    toolpath preview plus a **time and cost estimate**: the total across all plates and each plate's
    time and cost. A plate's result is kept until that plate changes; submitting needs every plate sliced,
-7. fill in their details and **submit** (to the Bezalel Main Modelling Center; a second center, Architecture,
+8. fill in their details and **submit** (to the Bezalel Main Modelling Center; a second center, Architecture,
    is prepared but switched off: uncomment it in `js/config.js` and `Code.gs` to offer the choice). The model lands in the lab's Google Drive folder
    `STUDENT 3D SUBMISSIONS`, the details go into a Google Sheet with a Status column, and the
    student gets a confirmation email.
