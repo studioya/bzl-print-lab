@@ -73,6 +73,7 @@ const COLUMNS = [
   ['copies', 'Pieces', 60],
   ['color', 'Color', 140],
   ['profile', 'Profile', 120],
+  ['layout', 'Laid out by', 150],
   ['estMinutes', 'Est. time (min)', 100],
   ['estCost', 'Est. cost (₪)', 100],
   ['plates', 'Plates', 60],
@@ -227,10 +228,11 @@ function begin_(req) {
     status: 'Uploading',
     name: v.name, idNumber: v.idNumber, email: v.email, phone: v.phone,
     department: v.department, course: v.course, deadline: v.deadline,
-    copies: v.copies, color: v.color, profile: v.profileLabel,
+    copies: v.copies, color: v.color, profile: v.profileLabel, layout: v.layout,
     estMinutes: v.estMinutes, estCost: v.estCost, plates: v.plates, grams: v.grams,
     objects: v.objects.map(function (o) {
-      return o.name + ' ×' + o.copies + ' (' + o.size + ')' + (o.scalePercent !== 100 ? ' scaled ' + o.scalePercent + '%' : '');
+      return o.name + ' ×' + o.copies + ' (' + o.size + ')' + (o.scalePercent !== 100 ? ' scaled ' + o.scalePercent + '%' : '') +
+        (o.layout ? ' – laid out by ' + o.layout : '');
     }).join('\n'),
     supports: v.supports ? 'Yes' : 'No',
     files: '', folder: '', notes: v.notes, labNotes: '',
@@ -314,6 +316,9 @@ function saveSession_(id, sub) {
 
 // ---------------------------------------------------------------- validation
 
+// Who laid each object out on the page: the site (auto-orient + placement), or the student.
+const LAYOUT_LABELS = { site: 'site', student: 'student', 'site+student': 'site, then adjusted by the student' };
+
 function validate_(d, o) {
   function str(v, max) { return String(v == null ? '' : v).trim().slice(0, max); }
   const v = {
@@ -348,8 +353,10 @@ function validate_(d, o) {
         unitScale: +x.unitScale || 1,
         scalePercent: Math.min(1000, Math.max(1, +x.scalePercent || 100)),
         rotation: Array.isArray(x.rotation) ? x.rotation.slice(0, 9).map(Number) : null,
+        layout: LAYOUT_LABELS[x.layout] || '',
       };
     }),
+    layout: str(o.layout, 40),
     plateLayout: (Array.isArray(o.plateLayout) ? o.plateLayout : []).slice(0, 36).map(function (pl) {
       return (Array.isArray(pl) ? pl : []).slice(0, SETTINGS.MAX_OBJECTS + 1).map(function (s) { return str(s, 180); });
     }),
@@ -418,6 +425,7 @@ function summaryText_(row, v) {
     '',
     'Original files: ' + v.files.join(', '),
     'Profile: ' + row.profile,
+    'Laid out by: ' + (row.layout || '-') + ' (the student chose whether the site or they themselves orient and place each model)',
     'Color: ' + row.color,
     'Pieces in total: ' + row.copies + ' (' + row.plates + ' plate' + (row.plates > 1 ? 's' : '') + ')',
     'Supports: ' + row.supports,
@@ -429,7 +437,7 @@ function summaryText_(row, v) {
     return '  • ' + o.name + ' ×' + o.copies + ' — ' + o.size + ' mm, from ' + o.file +
       (o.unitScale !== 1 ? ', file units ×' + o.unitScale : '') +
       (o.scalePercent !== 100 ? ', resized to ' + o.scalePercent + '%' : '') +
-      ', rotation ' + JSON.stringify(o.rotation);
+      ', rotation ' + JSON.stringify(o.rotation) + (o.layout ? ', laid out by ' + o.layout : '');
   })).concat(v.plateLayout.length ? ['Plates as arranged by the student:'] : []).concat(v.plateLayout.map(function (pl, i) {
     return '  Plate ' + (i + 1) + (v.plateNames[i] ? ' "' + v.plateNames[i] + '"' : '') +
       (v.plateColors[i] ? ' (' + v.plateColors[i] + ')' : '') + ': ' + pl.join(', ');

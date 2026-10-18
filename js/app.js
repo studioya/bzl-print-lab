@@ -69,6 +69,7 @@ viewer.onMove = (id, x, y) => {
   const p = pieceById(id);
   if (!p) return;
   p.x = x; p.y = y;
+  markAdjusted(objectByKey(p.key));
   state.selectedPiece = id;
   state.selected = p.key;
   refresh();
@@ -77,6 +78,7 @@ viewer.clampDrag = (key, x, y) => clampToPlate(x, y, objectByKey(key).oriented.s
 
 function newObject(fileId, name, source, from = null) {
   const o = {
+    layout: from ? from.layout : 'student', // 'site' | 'site+student' | 'student': who laid it out
     key: `o${state.nextKey++}`,
     fileId,
     name,
@@ -200,6 +202,7 @@ function initControls() {
     const o = selectedObject();
     if (!o) return;
     o.unitScale = +e.target.value;
+    markAdjusted(o);
     orient(o);
     refresh({ reframe: true });
   });
@@ -219,6 +222,7 @@ function initControls() {
   const rotateSelected = (R) => {
     const o = selectedObject();
     if (!o) return;
+    markAdjusted(o);
     o.R = R(o);
     orient(o);
     refresh();
@@ -265,6 +269,7 @@ function initControls() {
     scale = Math.min(10, Math.max(0.01, scale));
     if (!Number.isFinite(scale) || Math.abs(scale - o.scale) < 1e-9) { renderSelected(); return; }
     o.scale = scale;
+    markAdjusted(o);
     orient(o);
     refresh({ reframe: true });
   };
@@ -325,10 +330,10 @@ function cancelPick() {
 async function handleFiles(files) {
   $('loadError').hidden = true;
   const errors = [];
-  let added = 0;
+  const loaded = []; // [{ file, positions }]
   for (const file of files) {
     const ext = extensionOf(file.name);
-    if (state.files.length >= CONFIG.maxFiles) {
+    if (state.files.length + loaded.length >= CONFIG.maxFiles) {
       errors.push([`You can add up to ${CONFIG.maxFiles} files. Remove one to add another.`,
         `ניתן להוסיף עד ${CONFIG.maxFiles} קבצים. הסירו קובץ כדי להוסיף אחר.`]);
       break;
@@ -342,7 +347,7 @@ async function handleFiles(files) {
         `${file.name} גדול מ־${CONFIG.maxFileMB} MB. יש לייצא אותו ברזולוציה נמוכה יותר.`]);
       continue;
     }
-    if (state.objects.length >= CONFIG.maxObjects) {
+    if (state.objects.length + loaded.length >= CONFIG.maxObjects) {
       errors.push([`The plate already has ${CONFIG.maxObjects} objects.`, `על המשטח כבר יש ${CONFIG.maxObjects} אובייקטים.`]);
       break;
     }
@@ -358,25 +363,61 @@ async function handleFiles(files) {
       } finally {
         $('loadingHint').hidden = true;
       }
-      const fileId = `f${state.nextKey++}`;
-      state.files.push({ id: fileId, file });
-      const o = newObject(fileId, file.name, positions);
-      state.objects.push(o);
-      const piece = placePiece(o.key);
-      state.selected = o.key;
-      state.selectedPiece = piece.id;
-      added++;
+      loaded.push({ file, positions });
     } catch (e) {
       console.error(e);
       errors.push([`Could not read ${file.name}: ${e.message}`, `לא ניתן לקרוא את ${file.name}.`]);
     }
   }
   if (errors.length) showLoadError(errors);
-  if (added) {
-    // Show the plate the last new piece went to.
-    state.plateIndex = Math.max(0, plateOf(state.selectedPiece));
-    refresh({ reframe: true });
+  if (!loaded.length) return;
+
+  // Ask whether the site should lay the new objects out, or the student will.
+  const layout = await askLayout(loaded.map((l) => l.file.name));
+  for (const { file, positions } of loaded) {
+    const fileId = `f${state.nextKey++}`;
+    state.files.push({ id: fileId, file });
+    const o = newObject(fileId, file.name, positions);
+    o.layout = layout;
+    if (layout === 'site') {
+      // Best orientation for printing (fewest supports, stable base).
+      o.R = autoOrient(o.source, currentProcess().support.thresholdAngle || 30);
+      orient(o);
+    }
+    state.objects.push(o);
+    const piece = placePiece(o.key);
+    state.selected = o.key;
+    state.selectedPiece = piece.id;
   }
+  // Show the plate the last new piece went to.
+  state.plateIndex = Math.max(0, plateOf(state.selectedPiece));
+  refresh({ reframe: true });
+}
+
+/**
+ * Pop-up for new files: 'site' (the site orients and places them) or
+ * 'student' (kept as in the file, placed by the student). Resolves with the choice.
+ */
+function askLayout(names) {
+  const dlg = $('layoutDialog');
+  const list = names.length === 1 ? `<b>${escapeHtml(names[0])}</b>` : `${names.length} files`;
+  $('layoutFiles').innerHTML = `Adding ${list}${names.length > 1 ? `: ${names.map(escapeHtml).join(', ')}` : ''}`;
+  return new Promise((resolve) => {
+    const done = (choice) => {
+      dlg.removeEventListener('close', onClose);
+      resolve(choice);
+    };
+    const onClose = () => done(dlg.returnValue === 'site' ? 'site' : 'student');
+    dlg.addEventListener('close', onClose);
+    dlg.returnValue = '';
+    if (state.noDialog || !dlg.showModal) { done('student'); return; }
+    dlg.showModal();
+  });
+}
+
+/** The student moved, rotated or resized an object the site laid out. */
+function markAdjusted(o) {
+  if (o && o.layout === 'site') o.layout = 'site+student';
 }
 
 function showLoadError(list) {
@@ -475,6 +516,7 @@ function movePieceToPlate(id, target) {
     target = state.plates.length - 1;
   }
   const [piece] = state.plates[from].splice(state.plates[from].findIndex((p) => p.id === id), 1);
+  markAdjusted(objectByKey(piece.key));
   const o = objectByKey(piece.key);
   const spot = o.fits && findFreeSpot(o.oriented.size, occupiedOn(state.plates[target]), pieceGap());
   Object.assign(piece, spot || { x: PLATE.width / 2, y: PLATE.depth / 2 });
@@ -1212,6 +1254,13 @@ function plateLayout() {
   });
 }
 
+/** Who laid the objects out: 'Site', 'Student', 'Site, adjusted by student' or 'Mixed'. */
+const LAYOUT_LABEL = { site: 'Site', student: 'Student', 'site+student': 'Site, adjusted by student' };
+function layoutSummary() {
+  const kinds = [...new Set(state.objects.map((o) => o.layout || 'student'))];
+  return kinds.length === 1 ? LAYOUT_LABEL[kinds[0]] : 'Mixed (see objects)';
+}
+
 /** "White" when every plate is one colour, else "White (plates 1, 3), Black (plate 2)". */
 function colorSummary() {
   const nums = {};
@@ -1267,7 +1316,9 @@ async function onSubmit(e) {
       unitScale: o.unitScale,
       scalePercent: +(o.scale * 100).toFixed(1),
       rotation: o.R.map((v) => Math.round(v * 1e6) / 1e6),
+      layout: o.layout,
     })),
+    layout: layoutSummary(),
     profile: state.profile,
     profileLabel: profileLabel(state.profile),
     color: colorSummary(),

@@ -7,10 +7,10 @@ const ARCHITECTURE = { NAME: 'Bezalel Architecture Modelling Center', NAME_HE: '
 
 const details = { name: 'Dana Levi', idNumber: '012345678', email: 'dana@example.com', phone: '050-1234567',
   department: 'Industrial Design', course: 'Studio 2', deadline: '2026-11-01', notes: 'Please print soon', website: '' };
-const order = { files: ['part.stl', 'bracket.3mf'], profile: 'Normal - Bezalel Modelling Center', profileLabel: 'Normal', color: 'Black (plate 1), White (plate 2)', plateColors: ['Black', 'White'], plateNames: ['Base', ''], center: 'main', copies: 4,
+const order = { files: ['part.stl', 'bracket.3mf'], profile: 'Normal - Bezalel Modelling Center', profileLabel: 'Normal', color: 'Black (plate 1), White (plate 2)', plateColors: ['Black', 'White'], plateNames: ['Base', ''], center: 'main', layout: 'Mixed (see objects)', copies: 4,
   objects: [
-    { name: 'part.stl', file: 'part.stl', copies: 3, sizeMm: '40 × 20 × 10', unitScale: 1, rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1] },
-    { name: 'bracket.3mf – part 2', file: 'bracket.3mf', copies: 1, sizeMm: '12 × 8 × 5', unitScale: 10, scalePercent: 150, rotation: [1, 0, 0, 0, 0, -1, 0, 1, 0] },
+    { name: 'part.stl', file: 'part.stl', copies: 3, sizeMm: '40 × 20 × 10', unitScale: 1, rotation: [1, 0, 0, 0, 1, 0, 0, 0, 1], layout: 'site' },
+    { name: 'bracket.3mf – part 2', file: 'bracket.3mf', copies: 1, sizeMm: '12 × 8 × 5', unitScale: 10, scalePercent: 150, rotation: [1, 0, 0, 0, 0, -1, 0, 1, 0], layout: 'student' },
   ],
   plates: 2, plateLayout: [['part.stl ×2', 'bracket.3mf – part 2 ×1'], ['part.stl ×1']], estimatedMinutes: 95, estimatedCost: 10, costBreakdown: { material: 1.56, time: 7.92, subtotal: 9.48, minimum: 10, minimumTopUp: 0.52, minimumPlates: [2], total: 10, perGram: 0.05, perHour: 5 }, filamentGrams: 31.2, supports: true, secondsOnPage: 60 };
 
@@ -35,9 +35,10 @@ test('begin → file → finish stores files, logs the row and emails the studen
   const r3 = b.call({ action: 'finish', id: r1.id, token: r1.token });
   assert.equal(r3.ok, true, JSON.stringify(r3));
   assert.equal(b.sheetRows[1][2], 'New');
-  assert.match(b.sheetRows[1][19], /ORIGINAL – part\.stl\nORIGINAL – bracket\.3mf\nORIGINAL – housing\.step\nPLATES – plates\.3mf/);
+  assert.match(b.sheetRows[1][20], /ORIGINAL – part\.stl\nORIGINAL – bracket\.3mf\nORIGINAL – housing\.step\nPLATES – plates\.3mf/);
   assert.equal(b.sheetRows[1][10], 4, 'pieces in total');
-  assert.equal(b.sheetRows[1][17], 'part.stl ×3 (40 × 20 × 10)\nbracket.3mf – part 2 ×1 (12 × 8 × 5) scaled 150%');
+  assert.equal(b.sheetRows[1][18], 'part.stl ×3 (40 × 20 × 10) – laid out by site\nbracket.3mf – part 2 ×1 (12 × 8 × 5) scaled 150% – laid out by student');
+  assert.equal(b.sheetRows[1][13], 'Mixed (see objects)', 'Laid out by column');
   assert.equal(b.mails.length, 1);
   assert.equal(b.mails[0][0], 'dana@example.com');
   const names = b.drive.files.filter((f) => f.folder === sub).map((f) => f.name);
@@ -46,6 +47,8 @@ test('begin → file → finish stores files, logs the row and emails the studen
   assert.match(txt, /Estimated cost: ₪10 — material ₪1\.56 \(₪0\.05\/g\) \+ printing time ₪7\.92 \(₪5\/h\) \+ ₪0\.52 to reach the ₪10 minimum per plate \(plate 2\)/);
   assert.match(txt, /Plate 1 "Base" \(Black\): part\.stl ×2, bracket\.3mf – part 2 ×1\n  Plate 2 \(White\): part\.stl ×1/);
   assert.match(txt, /Sent to: Bezalel Main Modelling Center/);
+  assert.match(txt, /Laid out by: Mixed \(see objects\)/);
+  assert.match(txt, /rotation \[1,0,0,0,1,0,0,0,1\], laid out by site/);
   assert.match(txt, /bracket\.3mf – part 2 ×1 — 12 × 8 × 5 mm, from bracket\.3mf, file units ×10, resized to 150%/);
 });
 
