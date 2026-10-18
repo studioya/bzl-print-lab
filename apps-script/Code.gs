@@ -26,15 +26,16 @@ const SETTINGS = {
       SHEET_ID: '',
       NOTIFY_EMAIL: '',
     },
-    architecture: {
-      NAME: 'Bezalel Architecture Modelling Center',
-      NAME_HE: 'מרכז הדיגום של המחלקה לארכיטקטורה',
-      FOLDER_NAME: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE',
-      SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE – Log',
-      FOLDER_ID: '',
-      SHEET_ID: '',
-      NOTIFY_EMAIL: '',
-    },
+    // Not in use yet. To offer it, uncomment this and the matching line in js/config.js.
+    // architecture: {
+    //   NAME: 'Bezalel Architecture Modelling Center',
+    //   NAME_HE: 'מרכז הדיגום של המחלקה לארכיטקטורה',
+    //   FOLDER_NAME: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE',
+    //   SHEET_TITLE: 'STUDENT 3D SUBMISSIONS – ARCHITECTURE – Log',
+    //   FOLDER_ID: '',
+    //   SHEET_ID: '',
+    //   NOTIFY_EMAIL: '',
+    // },
   },
   LAB_NAME: 'BZL Print Lab',
   // Optional: also email this address on every new submission, whatever the center.
@@ -46,7 +47,7 @@ const SETTINGS = {
   MAX_MODEL_FILES: 5,   // originals per submission (+1 plates 3MF made by the page)
   MAX_OBJECTS: 50,
   MAX_COPIES_PER_OBJECT: 10,
-  ALLOWED_EXTENSIONS: ['stl', 'obj', '3mf'],
+  ALLOWED_EXTENSIONS: ['stl', 'obj', '3mf', 'step', 'stp'],
   MAX_SUBMISSIONS_PER_EMAIL_PER_HOUR: 6,
   MIN_SECONDS_ON_PAGE: 5,
 };

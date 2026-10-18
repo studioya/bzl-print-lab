@@ -260,6 +260,26 @@ test('pricing: material + time, ₪10 minimum per plate', async () => {
   assert.equal(submissionPrice([], rate).total, 0);
 });
 
+test('STEP files are converted to a mesh in mm (OpenCascade)', async () => {
+  const { readFileSync } = await import('node:fs');
+  // OpenCascade's emscripten loader uses CommonJS require() when it runs in Node (browsers don't).
+  globalThis.require ??= (await import('node:module')).createRequire(import.meta.url);
+  globalThis.__dirname ??= new URL('../vendor/occt/', import.meta.url).pathname;
+  const { loadModel } = await import('../js/loaders.js');
+  const size = (p) => {
+    const mn = [Infinity, Infinity, Infinity], mx = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i < p.length; i += 3) for (let k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], p[i + k]); mx[k] = Math.max(mx[k], p[i + k]); }
+    return mx.map((v, k) => +(v - mn[k]).toFixed(3));
+  };
+  const rounded = await loadModel(readFileSync(new URL('./fixtures/rounded-cube.step', import.meta.url)).buffer, 'rounded-cube.STEP');
+  assert.deepEqual(size(rounded), [10, 10, 10]);
+  assert.ok(rounded.length / 9 > 100, 'curved faces are finely tessellated');
+  // A 1 m cube defined in inches arrives in millimetres.
+  const cube = await loadModel(readFileSync(new URL('./fixtures/cube-1m-inch-units.step', import.meta.url)).buffer, 'cube.stp');
+  assert.deepEqual(size(cube), [1000, 1000, 1000]);
+  await assert.rejects(loadModel(new TextEncoder().encode('not a step file').buffer, 'x.step'));
+});
+
 test('STL binary and ASCII parse to the same triangles', () => {
   const tri = fx.box(1, 2, 3);
   const bin = parseSTL(toBinarySTL(fx.f32(tri)));

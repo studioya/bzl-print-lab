@@ -30,12 +30,13 @@
         <div class="step">
           <h2><span class="num">1</span> Models <span class="he" lang="he" dir="rtl">מודלים</span></h2>
           <label class="dropzone" id="dropzone" tabindex="0">
-            <input type="file" id="fileInput" accept=".stl,.obj,.3mf" multiple hidden>
-            <span class="dz-main">Drop up to <span data-max-files>5</span> STL, OBJ or 3MF files here, or <u>browse</u></span>
-            <span class="he" lang="he" dir="rtl">גררו לכאן עד <span data-max-files>5</span> קבצי STL, OBJ או 3MF, או <u>בחרו קבצים</u></span>
+            <input type="file" id="fileInput" accept=".stl,.obj,.3mf,.step,.stp" multiple hidden>
+            <span class="dz-main">Drop up to <span data-max-files>5</span> STL, OBJ, 3MF or STEP files here, or <u>browse</u></span>
+            <span class="he" lang="he" dir="rtl">גררו לכאן עד <span data-max-files>5</span> קבצי STL, OBJ, 3MF או STEP, או <u>בחרו קבצים</u></span>
             <span class="dz-hint">Max <span data-max-mb>25</span> MB per file
               <span class="he" lang="he" dir="rtl">עד <span data-max-mb>25</span> MB לקובץ</span></span>
           </label>
+          <div class="loading-hint" id="loadingHint" role="status" hidden></div>
           <div class="error dismissable" id="loadError" role="alert" hidden>
             <div class="msg" id="loadErrorMsg"></div>
             <button type="button" class="dismiss" data-dismiss="loadError" aria-label="Dismiss message" data-tip="Dismiss" data-tip-he="סגירה">✕</button>

@@ -9,9 +9,11 @@ export const CONFIG = {
   // in apps-script/Code.gs, which decides each center's Drive folder and Sheet.
   // A center can have its own appsScriptUrl (e.g. a script on another Google
   // account); otherwise the one above is used.
+  // With only one center listed, students don't see the "Send to" choice and
+  // everything goes to it. Uncomment architecture to offer the choice again.
   centers: [
     { id: 'main', en: 'Bezalel Main Modelling Center', he: 'מרכז הדיגום הראשי של בצלאל' },
-    { id: 'architecture', en: 'Bezalel Architecture Modelling Center', he: 'מרכז הדיגום של המחלקה לארכיטקטורה' },
+    // { id: 'architecture', en: 'Bezalel Architecture Modelling Center', he: 'מרכז הדיגום של המחלקה לארכיטקטורה' },
   ],
 
   // Pricing (shekels): material by weight + printing time (warm-up not charged),
