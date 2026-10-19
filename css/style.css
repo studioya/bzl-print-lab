@@ -498,3 +498,21 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
 .disclaimer .he { margin-top: 5px; }
 .estimate-empty { line-height: 1.5; }
 .estimate-empty .he { margin-top: 8px; }
+
+/* ---------- Continue → details pop-up ---------- */
+.estimate { display: flex; flex-direction: column; }
+.continue-bar { position: sticky; bottom: -14px; margin: auto -14px -14px; padding: 12px 14px 14px; background: var(--card);
+  border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); }
+.continue-bar .primary { width: 100%; }
+.continue-bar .hint { margin: 8px 0 0; font-size: 12px; }
+.details-dialog { max-width: 780px; width: calc(100% - 32px); max-height: calc(100vh - 32px); overflow: auto; }
+.details-dialog .details { position: relative; margin: 0; box-shadow: none; padding: 22px 24px 24px; }
+.details-dialog h2 { padding-right: 40px; }
+.details-dialog .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+.details-dialog .summary-field { grid-column: 1 / -1; }
+.details-dialog .consent { line-height: 1.5; }
+.details-dialog .consent .he { margin-top: 4px; }
+@media (max-width: 760px) {
+  .details-dialog .grid { grid-template-columns: minmax(0, 1fr); }
+  .details-dialog .details { padding: 18px 16px 20px; }
+}

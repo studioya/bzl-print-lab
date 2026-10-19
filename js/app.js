@@ -1280,15 +1280,31 @@ function updateOrderSummary() {
   if (chosenCenter() && CONFIG.centers.length > 1) parts.push(`→ ${chosenCenter().en}`);
   if (allSliced()) {
     const t = totals();
-    parts.push(`${fmtDuration(t.seconds)} · ${CONFIG.currency}${fmtMoney(t.price.total)}`);
+    parts.push(CONFIG.pricing.showCost === false ? fmtDuration(t.seconds) : `${fmtDuration(t.seconds)} · ${CONFIG.currency}${fmtMoney(t.price.total)}`);
   }
   $('orderSummary').textContent = parts.join(' · ');
 }
 
 function updateSubmitState() {
   const ready = canSlice() && allSliced();
-  $('submitBtn').disabled = !ready;
+  $('continueBtn').disabled = !ready;
+  $('submitBtn').disabled = !ready || submitting;
   $('submitHint').hidden = ready;
+}
+
+// The details form lives in a pop-up, opened by Continue once every plate is sliced.
+let submitting = false;
+function initDetailsDialog() {
+  const dlg = $('detailsDialog');
+  $('continueBtn').addEventListener('click', () => {
+    if ($('continueBtn').disabled) return;
+    updateOrderSummary();
+    dlg.showModal();
+    const empty = Object.keys(FIELD_RULES).map($).find((el) => !el.value);
+    (empty || $('fName')).focus();
+  });
+  $('detailsClose').addEventListener('click', () => { if (!submitting) dlg.close(); });
+  dlg.addEventListener('cancel', (e) => { if (submitting) e.preventDefault(); }); // Esc mid-upload
 }
 
 const FIELD_RULES = {
@@ -1451,6 +1467,7 @@ async function onSubmit(e) {
 
   const btn = $('submitBtn');
   btn.disabled = true;
+  submitting = true;
   try {
     setSubmitStatus('Preparing files… · מכין קבצים…');
     const plate3mf = await buildPlatesFile(state.profile);
@@ -1490,9 +1507,12 @@ async function onSubmit(e) {
       $('doneEst').innerHTML = `Estimated ready: <b>${escapeHtml(est.en)}</b>${est.noteEn ? `. ${escapeHtml(est.noteEn)}` : ''}` +
         he(`מוכן בערך: <b>${escapeHtml(est.he)}</b>${est.noteHe ? `. ${escapeHtml(est.noteHe)}` : ''}`);
     }
+    submitting = false;
+    $('detailsDialog').close();
     $('doneDialog').showModal();
   } catch (err) {
     setSubmitStatus(escapeHtml(err.message), true);
+    submitting = false;
     btn.disabled = false;
   }
 }
@@ -1511,6 +1531,7 @@ function fmtDuration(sec) {
 
 initTooltips();
 initTracking();
+initDetailsDialog();
 initCenters();
 initProfiles();
 initControls();

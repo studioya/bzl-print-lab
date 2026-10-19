@@ -213,11 +213,38 @@
           <p class="disclaimer">Estimate only: the lab sets the final time and cost after slicing in Bambu Studio.
             <span class="he" lang="he" dir="rtl">הערכה בלבד: המעבדה תקבע את הזמן והעלות הסופיים לאחר פריסה ב־Bambu Studio.</span></p>
         </div>
+        <div class="continue-bar">
+          <button type="button" class="primary big" id="continueBtn" disabled>Continue <span class="he" lang="he" dir="rtl">המשך</span></button>
+          <p class="hint" id="submitHint">Upload your model and slice all plates to continue.
+            <span class="he" lang="he" dir="rtl">העלו את המודל ובצעו פריסה לכל המשטחים כדי להמשיך.</span></p>
+        </div>
       </aside>
     </section>
 
-    <section class="details" id="details" aria-labelledby="detailsTitle">
-      <h2 id="detailsTitle"><span class="num">4</span> Your details &amp; submission <span class="he" lang="he" dir="rtl">פרטים והגשה</span></h2>
+  </main>
+
+  <dialog id="layoutDialog" aria-labelledby="layoutTitle">
+    <form method="dialog" class="layout-ask">
+      <h2 id="layoutTitle">How should we lay out your model? <span class="he" lang="he" dir="rtl">איך לסדר את המודל?</span></h2>
+      <p class="layout-files" id="layoutFiles"></p>
+      <p>The site can turn your model to the best position for printing and place it on the plate for you,
+        or you can lay it out yourself (it starts as it is in your file).</p>
+      <p class="he" lang="he" dir="rtl">האתר יכול לסובב את המודל למצב הטוב ביותר להדפסה ולמקם אותו על המשטח בשבילכם,
+        או שתסדרו אותו בעצמכם (הוא יופיע כפי שהוא בקובץ).</p>
+      <p class="layout-note"><b>Please note:</b> your model will be printed the way you submit it here, although the lab
+        supervisors may change the placement at their discretion.
+        <span class="he" lang="he" dir="rtl"><b>שימו לב:</b> המודל יודפס כפי שתגישו אותו כאן, אך אחראי המעבדה רשאים לשנות את המיקום לפי שיקול דעתם.</span></p>
+      <div class="layout-choices">
+        <button type="submit" class="primary" value="site" autofocus>Lay it out for me <span class="he" lang="he" dir="rtl">סדרו בשבילי</span></button>
+        <button type="submit" class="secondary" value="student">I'll do it myself <span class="he" lang="he" dir="rtl">אסדר בעצמי</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="detailsDialog" class="details-dialog" aria-labelledby="detailsTitle">
+    <div class="details" id="details">
+      <button type="button" class="dialog-x" id="detailsClose" aria-label="Close · סגירה">×</button>
+      <h2 id="detailsTitle">Your details &amp; submission <span class="he" lang="he" dir="rtl">פרטים והגשה</span></h2>
       <div class="notice">
         <strong>Please note:</strong> prints can take up to several weeks, depending on the lab's queue.
         <span class="he" lang="he" dir="rtl"><strong>שימו לב:</strong> הדפסות עשויות להימשך עד מספר שבועות, בהתאם לתור במעבדה.</span>
@@ -282,28 +309,8 @@
             <button type="button" class="dismiss" id="submitStatusDismiss" hidden aria-label="Dismiss message" data-tip="Dismiss" data-tip-he="סגירה">✕</button>
           </div>
         </div>
-        <p class="hint" id="submitHint">Upload your model and slice all plates to enable submission.
-          <span class="he" lang="he" dir="rtl">העלו את המודל ובצעו פריסה לכל המשטחים כדי לאפשר שליחה.</span></p>
       </form>
-    </section>
-  </main>
-
-  <dialog id="layoutDialog" aria-labelledby="layoutTitle">
-    <form method="dialog" class="layout-ask">
-      <h2 id="layoutTitle">How should we lay out your model? <span class="he" lang="he" dir="rtl">איך לסדר את המודל?</span></h2>
-      <p class="layout-files" id="layoutFiles"></p>
-      <p>The site can turn your model to the best position for printing and place it on the plate for you,
-        or you can lay it out yourself (it starts as it is in your file).</p>
-      <p class="he" lang="he" dir="rtl">האתר יכול לסובב את המודל למצב הטוב ביותר להדפסה ולמקם אותו על המשטח בשבילכם,
-        או שתסדרו אותו בעצמכם (הוא יופיע כפי שהוא בקובץ).</p>
-      <p class="layout-note"><b>Please note:</b> your model will be printed the way you submit it here, although the lab
-        supervisors may change the placement at their discretion.
-        <span class="he" lang="he" dir="rtl"><b>שימו לב:</b> המודל יודפס כפי שתגישו אותו כאן, אך אחראי המעבדה רשאים לשנות את המיקום לפי שיקול דעתם.</span></p>
-      <div class="layout-choices">
-        <button type="submit" class="primary" value="site" autofocus>Lay it out for me <span class="he" lang="he" dir="rtl">סדרו בשבילי</span></button>
-        <button type="submit" class="secondary" value="student">I'll do it myself <span class="he" lang="he" dir="rtl">אסדר בעצמי</span></button>
-      </div>
-    </form>
+    </div>
   </dialog>
 
   <dialog id="doneDialog">

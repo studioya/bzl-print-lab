@@ -22,7 +22,7 @@ A single web page where students:
    toolpath preview plus a **time and cost estimate**: the total across all plates and each plate's
    time and cost. A plate's result is kept until that plate changes; submitting needs every plate sliced,
 8. see **when it would be ready**, from the lab's live queue,
-9. fill in their details and **submit** to the Bezalel Main Modelling Center. It goes straight into
+9. press **Continue** (enabled once every plate is sliced), fill in their details in the pop-up and **submit** to the Bezalel Main Modelling Center. It goes straight into
    the print queue; the student gets a confirmation email with a **submission number** they can use
    on the site to **track** the status and current estimate,
 10. and the lab runs the queue from a **handler dashboard**: printers up/down, what to print next,
