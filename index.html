@@ -21,6 +21,7 @@
           <span class="he" lang="he" dir="rtl">הגשת עבודות להדפסת תלת־ממד</span></p>
       </div>
     </div>
+    <button type="button" class="track-link" id="trackBtn">Track a submission <span class="he" lang="he" dir="rtl">מעקב אחר הגשה</span></button>
   </header>
 
   <main>
@@ -196,6 +197,12 @@
             <div class="kpi-value" id="estCost">–</div>
             <div class="kpi-sub" id="estRate"></div>
           </div>
+          <div class="kpi ready" id="estReadyBox" hidden>
+            <div class="kpi-label">Estimated ready <span class="he" lang="he" dir="rtl">מוכן בערך</span></div>
+            <div class="kpi-ready" id="estReady">…</div>
+            <div class="kpi-sub" id="estReadyNote">Based on the lab's current queue. <span class="he" lang="he" dir="rtl">לפי התור הנוכחי במעבדה.</span></div>
+            <div class="est-missing" id="estLate" hidden></div>
+          </div>
           <div class="est-plates" id="estPlates" hidden></div>
           <div class="facts" id="estFacts"></div>
           <p class="disclaimer">Estimate only: the lab sets the final time and cost after slicing in Bambu Studio.
@@ -298,10 +305,27 @@
     <div class="done">
       <div class="done-icon" aria-hidden="true">✓</div>
       <h2>Submitted! <span class="he" lang="he" dir="rtl">ההגשה התקבלה!</span></h2>
-      <p>Your submission number is <strong id="doneId"></strong>. A confirmation email is on its way.</p>
-      <p class="he" lang="he" dir="rtl">מספר ההגשה שלכם הוא <strong id="doneIdHe"></strong>. אישור יישלח אליכם בדוא״ל.</p>
+      <p>Your submission number is <strong id="doneId"></strong>. A confirmation email is on its way.
+        Keep the number: use it to check the status and estimate at any time.</p>
+      <p class="he" lang="he" dir="rtl">מספר ההגשה שלכם הוא <strong id="doneIdHe"></strong>. אישור יישלח אליכם בדוא״ל.
+        שמרו את המספר: אפשר לבדוק איתו את הסטטוס וההערכה בכל עת.</p>
+      <p class="done-est" id="doneEst" hidden></p>
+      <p><a id="doneTrack" href="#" target="_blank" rel="noopener">Track this submission <span class="he" lang="he" dir="rtl">מעקב אחר ההגשה</span></a></p>
       <button type="button" class="primary" id="doneClose">Done <span class="he" lang="he" dir="rtl">סיום</span></button>
     </div>
+  </dialog>
+
+  <dialog id="trackDialog">
+    <form class="track" id="trackForm">
+      <h2>Track a submission <span class="he" lang="he" dir="rtl">מעקב אחר הגשה</span></h2>
+      <label for="trackId">Submission number <span class="he" lang="he" dir="rtl">מספר הגשה</span></label>
+      <div class="track-row">
+        <input id="trackId" autocomplete="off" spellcheck="false" placeholder="P261019-AB3CD" maxlength="20">
+        <button type="submit" class="primary">Check <span class="he" lang="he" dir="rtl">בדיקה</span></button>
+      </div>
+      <div class="track-result" id="trackResult" aria-live="polite"></div>
+      <div class="track-actions"><button type="button" class="secondary" id="trackClose">Close <span class="he" lang="he" dir="rtl">סגירה</span></button></div>
+    </form>
   </dialog>
 
   <footer>

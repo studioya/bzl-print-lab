@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+@font-face { font-family: 'Abraham'; src: url('https://studioya.github.io/bzl-print-lab/fonts/abraham-regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Abraham'; src: url('https://studioya.github.io/bzl-print-lab/fonts/abraham-bold.woff2') format('woff2'); font-weight: 600 700; font-display: swap; }
+:root {
+  --green: #00ae42; --green-dark: #008a34; --green-soft: #e6f7ec;
+  --ink: #1d2327; --ink-2: #4a545b; --ink-3: #7b858c; --line: #dfe3e6; --bg: #f3f5f6; --card: #fff;
+  --danger: #c8333b; --danger-soft: #fdecec; --warn: #9a6400; --warn-soft: #fff5e0; --blue: #2f6fb5; --blue-soft: #e8f0fa;
+  --violet: #6b4fb3; --violet-soft: #efeaf9; --radius: 10px;
+  --shadow: 0 1px 2px rgba(16,24,32,.06), 0 2px 10px rgba(16,24,32,.05);
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 14px/1.45 'Abraham', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; color: var(--ink); background: var(--bg); }
+button, input, select, textarea { font: inherit; color: inherit; }
+.he { direction: rtl; unicode-bidi: isolate; color: var(--ink-3); font-size: .92em; margin-left: .4em; }
+.he.solo { margin-left: 0; }
+.btn.primary .he, .chip.bad .he, .flag .he { color: inherit; opacity: .85; }
+header { background: var(--ink); color: #fff; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }
+header h1 { font-size: 17px; margin: 0; font-weight: 700; }
+header h1 .he { color: #b8c0c6; }
+header .sp { flex: 1; }
+header a, header button.link { color: #cfe; font-size: 13px; text-decoration: none; background: none; border: 0; cursor: pointer; padding: 4px 6px; }
+header a:hover, header button.link:hover { text-decoration: underline; }
+.who { color: #9aa4ab; font-size: 12px; }
+main { padding: 14px 16px 60px; max-width: 1400px; margin: 0 auto; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.chip { background: var(--card); border-radius: 999px; padding: 5px 12px; box-shadow: var(--shadow); font-size: 13px; }
+.chip b { font-size: 15px; margin-right: 4px; }
+.chip.bad { background: var(--danger-soft); color: var(--danger); cursor: pointer; }
+h2 { font-size: 15px; margin: 18px 0 8px; }
+.printers { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.pr { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 10px 12px; border-top: 4px solid var(--green); display: flex; flex-direction: column; gap: 6px; }
+.pr.down { border-top-color: var(--danger); background: #fbf6f6; }
+.pr.busy { border-top-color: var(--violet); }
+.pr .top { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pr .name { font-weight: 700; font-size: 15px; white-space: nowrap; }
+.pr .state { font-size: 12.5px; color: var(--ink-2); min-height: 36px; }
+.pr .state b { color: var(--ink); }
+.pr .note { font-size: 12px; color: var(--danger); }
+.pr .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { display: inline-block; border-radius: 999px; padding: 1px 9px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.s-Queued { background: var(--blue-soft); color: var(--blue); }
+.s-Printing { background: var(--violet-soft); color: var(--violet); }
+.s-On.hold, .s-On-hold { background: var(--warn-soft); color: var(--warn); }
+.s-Ready-for-pickup { background: var(--green-soft); color: var(--green-dark); }
+.s-Picked-up { background: #e9ecee; color: var(--ink-2); }
+.s-Cancelled, .s-Rejected, .s-Abandoned { background: var(--danger-soft); color: var(--danger); }
+.s-Uploading { background: #eee; color: var(--ink-3); }
+.btn { border: 1px solid var(--line); background: #fff; border-radius: 7px; padding: 4px 10px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
+.btn.primary:hover { background: var(--green-dark); }
+.btn.danger { color: var(--danger); border-color: #efc3c5; }
+.btn.small { padding: 2px 8px; font-size: 12px; }
+.btn:disabled { opacity: .5; cursor: default; }
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 18px 0 8px; }
+.tabs { display: flex; gap: 2px; background: #e4e8ea; border-radius: 8px; padding: 3px; }
+.tabs button { border: 0; background: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+.tabs button.on { background: #fff; box-shadow: var(--shadow); font-weight: 600; }
+.toolbar input[type=search] { border: 1px solid var(--line); border-radius: 7px; padding: 5px 10px; min-width: 220px; background: #fff; }
+.list { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.row { display: grid; grid-template-columns: 28px 34px 1.3fr 1.2fr 1fr 1.1fr 1.1fr; gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.row:last-child { border-bottom: 0; }
+.row:hover { background: #f8fafb; }
+.row.sel { background: #eef8f1; }
+.row.head { cursor: default; background: #fafbfc; font-size: 12px; color: var(--ink-3); font-weight: 600; }
+.row .pos { color: var(--ink-3); font-weight: 700; text-align: center; }
+.row .id { font-weight: 700; font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+.row .sub { font-size: 12px; color: var(--ink-3); }
+.dots { display: flex; gap: 3px; flex-wrap: wrap; }
+.dot { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--ink-3); }
+.dot.Black { background: #333; } .dot.White { background: #fff; }
+.dot.printing { border-color: var(--violet); box-shadow: 0 0 0 2px var(--violet-soft); }
+.dot.done { border-color: var(--green); position: relative; }
+.dot.done::after { content: '✓'; position: absolute; inset: -3px 0 0 1px; font-size: 11px; color: var(--green); font-weight: 700; }
+.dot.cancelled { opacity: .3; }
+.flag { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 5px; margin: 2px 4px 0 0; }
+.flag.late { background: var(--danger-soft); color: var(--danger); }
+.flag.stale { background: var(--warn-soft); color: var(--warn); }
+.empty { padding: 30px; text-align: center; color: var(--ink-3); }
+/* drawer */
+.shade { position: fixed; inset: 0; background: rgba(20,26,30,.3); z-index: 9; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 100%); background: var(--bg); z-index: 10; overflow-y: auto; box-shadow: -4px 0 24px rgba(0,0,0,.15); }
+.drawer .dh { position: sticky; top: 0; background: var(--card); padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; z-index: 1; }
+.drawer .dh .id { font-size: 18px; font-weight: 700; font-family: ui-monospace, Menlo, monospace; }
+.drawer .dh .x { margin-left: auto; font-size: 20px; border: 0; background: none; cursor: pointer; }
+.drawer section { background: var(--card); margin: 12px 16px; border-radius: var(--radius); box-shadow: var(--shadow); padding: 12px 14px; }
+.drawer section h3 { margin: 0 0 8px; font-size: 13px; color: var(--ink-2); }
+.kv { display: grid; grid-template-columns: 150px 1fr; gap: 4px 12px; font-size: 13px; }
+.kv dt { color: var(--ink-3); }
+.kv dd { margin: 0; word-break: break-word; white-space: pre-line; }
+.plate { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.plate:last-child { border-bottom: 0; }
+.plate .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
+.plate select, .plate input, section select, section textarea, section input[type=text] { border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; background: #fff; font-size: 13px; }
+section textarea { width: 100%; min-height: 64px; resize: vertical; }
+.row-flex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.preview { border: 1px dashed var(--line); border-radius: 8px; padding: 8px; margin-top: 8px; background: #fcfcfc; max-height: 300px; overflow: auto; }
+.muted { color: var(--ink-3); font-size: 12px; }
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 9px 16px; border-radius: 8px; z-index: 20; font-size: 13px; box-shadow: var(--shadow); max-width: 90vw; }
+.toast.err { background: var(--danger); }
+.busy-bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--green); z-index: 30; width: 0; transition: width .4s; }
+.busy-bar.on { width: 70%; transition: width 6s ease-out; }
+dialog { border: 0; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.25); padding: 18px; max-width: 520px; width: 92vw; }
+dialog h3 { margin-top: 0; }
+.dates .d { display: flex; gap: 6px; margin-bottom: 6px; }
+.dates input { border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+.dates input[type=text] { flex: 1; }
+@media (max-width: 900px) {
+  .row { grid-template-columns: 20px 18px 1fr auto; gap: 8px; }
+  .row .c-who, .row .c-dates, .row .c-plates { display: none; }
+  .row.head { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="busy-bar" id="busy"></div>
+<header>
+  <h1>Print Lab dashboard <span class="he">לוח בקרה</span></h1>
+  <span class="sp"></span>
+  <span class="who" id="who"></span>
+  <a id="folderLink" target="_blank" rel="noopener">Files <span class="he">קבצים</span></a>
+  <a id="dataLink" target="_blank" rel="noopener">Data sheet <span class="he">גיליון</span></a>
+  <button class="link" id="datesBtn">Closed dates <span class="he">ימי סגירה</span></button>
+  <button class="link" id="refreshBtn">↻ Refresh <span class="he">רענון</span></button>
+</header>
+<main>
+  <div class="chips" id="chips"></div>
+  <h2>Printers <span class="he">מדפסות</span></h2>
+  <div class="printers" id="printers"></div>
+  <div class="toolbar">
+    <div class="tabs" id="tabs"></div>
+    <input type="search" id="search" placeholder="Search · חיפוש (number, name, course…)">
+    <span class="sp" style="flex:1"></span>
+    <button class="btn" id="zipBtn" disabled>Download selected plates (ZIP) <span class="he">הורדת פלטות</span></button>
+  </div>
+  <div class="list" id="list"></div>
+  <p class="muted" id="foot"></p>
+</main>
+<div id="drawerWrap" hidden><div class="shade" id="shade"></div><div class="drawer" id="drawer"></div></div>
+
+<dialog id="datesDialog">
+  <h3>Closed dates <span class="he">ימים שהמעבדה סגורה</span></h3>
+  <p class="muted">No prints are started on these days (Fridays and Saturdays are always closed). Estimates take them into account.
+    <span class="he solo" style="display:block">בימים אלה לא מתחילים הדפסות (שישי ושבת תמיד סגורים). ההערכות מתחשבות בהם.</span></p>
+  <div class="dates" id="datesList"></div>
+  <div class="row-flex"><button class="btn" id="addDate">+ Add date <span class="he">הוספה</span></button></div>
+  <div class="row-flex" style="justify-content:flex-end">
+    <button class="btn" id="datesCancel">Cancel <span class="he">ביטול</span></button>
+    <button class="btn primary" id="datesSave">Save <span class="he">שמירה</span></button>
+  </div>
+</dialog>
+
+<dialog id="askDialog">
+  <h3 id="askTitle"></h3>
+  <div id="askBody"></div>
+  <div class="row-flex" style="justify-content:flex-end">
+    <button class="btn" id="askCancel">Cancel <span class="he">ביטול</span></button>
+    <button class="btn primary" id="askOk">OK <span class="he">אישור</span></button>
+  </div>
+</dialog>
+
+<script>
+(function () {
+  'use strict';
+  const TZ = 'Asia/Jerusalem';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const bi = (en, he) => esc(en) + ' <span class="he">' + esc(he) + '</span>';
+  const S = { data: null, tab: 'queue', search: '', open: null, selected: new Set(), loading: false };
+  const STATE_HE = { waiting: 'ממתינה', printing: 'בהדפסה', done: 'הסתיימה', cancelled: 'בוטלה' };
+
+  // ---------- server calls
+  function call(name, args) {
+    $('busy').className = 'busy-bar on';
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler((txt) => {
+          $('busy').className = 'busy-bar';
+          let res;
+          try { res = JSON.parse(txt); } catch (e) { res = { ok: false, error: 'Bad reply' }; }
+          if (res.ok) resolve(res.data); else { toast(res.error, true); reject(new Error(res.error)); }
+        })
+        .withFailureHandler((err) => { $('busy').className = 'busy-bar'; toast(String(err && err.message || err), true); reject(err); })
+        .api(name, args || {});
+    });
+  }
+  async function act(name, args, done) {
+    try {
+      const d = await call(name, args);
+      if (d && d.requests) { S.data = d; render(); }
+      if (done) toast(done);
+      return d;
+    } catch (e) { return null; }
+  }
+  async function load() {
+    if (S.loading) return;
+    S.loading = true;
+    try { S.data = await call('load'); render(); } catch (e) { /* toast shown */ } finally { S.loading = false; }
+  }
+
+  // ---------- formatting (always Israel time)
+  const dtf = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const df = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, weekday: 'short', day: '2-digit', month: '2-digit' });
+  const tf = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const dayKey = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(ms));
+  function when(ms) {
+    if (!ms) return '–';
+    const today = dayKey(S.data.now);
+    const k = dayKey(ms);
+    if (k === today) return 'today ' + tf.format(new Date(ms));
+    return dtf.format(new Date(ms)).replace(',', '');
+  }
+  function dur(min) {
+    min = Math.round(min);
+    const h = Math.floor(min / 60);
+    return h ? h + 'h ' + String(min % 60).padStart(2, '0') + 'm' : min + 'm';
+  }
+  function ago(ms) {
+    const d = Math.floor((S.data.now - ms) / 86400000);
+    return d <= 0 ? 'today' : d === 1 ? '1 day ago' : d + ' days ago';
+  }
+  /** Value for <input type=datetime-local> in Israel time. */
+  function localInput(ms) {
+    const p = {};
+    new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(new Date(ms)).forEach((x) => { p[x.type] = x.value; });
+    return p.year + '-' + p.month + '-' + p.day + 'T' + p.hour + ':' + p.minute;
+  }
+  /** Israel wall time from a datetime-local value → epoch ms. */
+  function fromLocalInput(v) {
+    const m = /^(\d+)-(\d+)-(\d+)T(\d+):(\d+)/.exec(v);
+    if (!m) return null;
+    const target = Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5]);
+    let guess = target;
+    for (let i = 0; i < 3; i++) {
+      const p = {};
+      new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })
+        .formatToParts(new Date(guess)).forEach((x) => { p[x.type] = +x.value; });
+      guess += target - Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute);
+    }
+    return guess;
+  }
+  const statusPill = (s) => '<span class="pill s-' + esc(s).replace(/ /g, '-') + '">' + esc(s) + ' <span class="he solo">' + esc(S.data.statuses[s] || '') + '</span></span>';
+
+  function flags(r) {
+    const out = [];
+    const deadlineEnd = r.deadline ? Date.parse(r.deadline + 'T23:59:00+02:00') : null;
+    if (deadlineEnd && ['Queued', 'Printing', 'On hold'].includes(r.status)) {
+      if (r.estReady && r.estReady > deadlineEnd) out.push('<span class="flag late">Late risk <span class="he">בסיכון איחור</span></span>');
+      else if (!r.estReady && deadlineEnd < S.data.now + 2 * 86400000) out.push('<span class="flag late">Deadline soon <span class="he">יעד קרוב</span></span>');
+    }
+    if (r.status === 'Ready for pickup' && r.readyAt && S.data.now - r.readyAt > S.data.uncollectedDays * 86400000) {
+      out.push('<span class="flag stale">Not collected <span class="he">לא נאסף</span></span>');
+    }
+    if (r.plates.some((p) => p.state === 'printing' && p.expectedEnd && S.data.now > p.expectedEnd + 2 * 3600000)) {
+      out.push('<span class="flag stale">Print overdue <span class="he">הדפסה באיחור</span></span>');
+    }
+    if (r.status === 'On hold' && r.statusChanged && S.data.now - r.statusChanged > 7 * 86400000) {
+      out.push('<span class="flag stale">On hold ' + esc(ago(r.statusChanged)) + '</span>');
+    }
+    return out.join('');
+  }
+
+  // ---------- render
+  function render() {
+    const d = S.data;
+    $('who').textContent = d.me;
+    $('folderLink').href = d.folderUrl || '#';
+    $('dataLink').href = d.dataUrl || '#';
+    renderChips();
+    renderPrinters();
+    renderTabs();
+    renderList();
+    if (S.open) renderDrawer();
+    const f = d.factor === 1 ? 'slicer estimates used as is' : 'print times × ' + d.factor + ' (learned from finished prints)';
+    $('foot').innerHTML = 'Updated ' + esc(tf.format(new Date(d.now))) + ' · ' + esc(f) + ' · +' + d.handlingMinutes + ' min handling per plate. ' +
+      'Prints start Sun–Thu 9:00–22:00 and run through nights and weekends.';
+  }
+
+  function count(st) { return S.data.requests.filter((r) => r.status === st).length; }
+  function renderChips() {
+    const d = S.data;
+    const plWaiting = d.requests.filter((r) => ['Queued', 'Printing'].includes(r.status))
+      .reduce((n, r) => n + r.plates.filter((p) => p.state === 'waiting').length, 0);
+    const late = d.requests.filter((r) => /flag late/.test(flags(r))).length;
+    let h = '<span class="chip"><b>' + plWaiting + '</b>' + bi('plates waiting', 'פלטות ממתינות') + '</span>' +
+      '<span class="chip"><b>' + count('Printing') + '</b>' + bi('printing', 'בהדפסה') + '</span>' +
+      '<span class="chip"><b>' + count('Ready for pickup') + '</b>' + bi('ready for pickup', 'מוכנות לאיסוף') + '</span>' +
+      '<span class="chip"><b>' + count('On hold') + '</b>' + bi('on hold', 'בהמתנה') + '</span>';
+    if (late) h += '<span class="chip bad"><b>' + late + '</b>' + bi('deadline at risk', 'בסיכון איחור') + '</span>';
+    if (d.outbox.pending) h += '<span class="chip"><b>' + d.outbox.pending + '</b>' + bi('emails waiting to send', 'מיילים ממתינים') + '</span>';
+    if (d.outbox.failed.length) {
+      h += '<span class="chip bad" id="failedChip" title="' + esc(d.outbox.failed.map((f) => f.subject + ': ' + f.error).join('\n')) + '"><b>' +
+        d.outbox.failed.length + '</b>' + bi('emails failed — click to retry', 'מיילים נכשלו — לחצו לניסיון חוזר') + '</span>';
+    }
+    $('chips').innerHTML = h;
+    const fc = $('failedChip');
+    if (fc) fc.onclick = () => act('retryEmails', {}, 'Emails will be retried · המיילים יישלחו שוב');
+  }
+
+  function plateByKey(key) {
+    for (const r of S.data.requests) for (const p of r.plates) if (p.key === key) return { r, p };
+    return null;
+  }
+  /** The next plate the plan puts on this printer (first in queue order). */
+  function nextFor(prId) {
+    let best = null;
+    for (const r of S.data.requests) {
+      if (!['Queued', 'Printing'].includes(r.status)) continue;
+      for (const p of r.plates) {
+        if (p.state === 'waiting' && p.plan && p.plan.printer === prId && (!best || p.plan.start < best.p.plan.start)) best = { r, p };
+      }
+    }
+    return best;
+  }
+
+  function renderPrinters() {
+    const el = $('printers');
+    el.innerHTML = S.data.printers.map((pr) => {
+      const cur = pr.plate ? plateByKey(pr.plate) : null;
+      const printing = cur && cur.p.state === 'printing';
+      let state, acts = '';
+      if (printing) {
+        state = bi('Printing', 'מדפיסה') + ' <b>' + esc(cur.p.key) + '</b><br>' + esc(cur.r.name || cur.r.id) +
+          ' · ends ~' + esc(when(cur.p.expectedEnd)) + ' <span class="he">מסתיימת</span>';
+        acts = '<button class="btn small primary" data-done="' + esc(cur.p.key) + '">✓ Done <span class="he">הסתיים</span></button>' +
+          '<button class="btn small danger" data-fail="' + esc(cur.p.key) + '">✗ Failed <span class="he">נכשל</span></button>';
+      } else if (pr.up) {
+        const nx = nextFor(pr.id);
+        state = bi('Idle', 'פנויה') + (nx ? '<br>Next <span class="he">הבא</span>: <b>' + esc(nx.p.key) + '</b> (' + esc(nx.p.color) + ', ' + dur(nx.p.estMinutes) + ')' : '');
+        if (nx) acts = '<button class="btn small primary" data-start="' + esc(nx.p.key) + '" data-on="' + esc(pr.id) + '">▶ Start ' + esc(nx.p.key) + ' <span class="he">התחלה</span></button>';
+      } else {
+        state = bi('Out of service', 'מושבתת') + (pr.since ? ' · ' + esc(ago(pr.since)) : '');
+      }
+      return '<div class="pr ' + (!pr.up ? 'down' : printing ? 'busy' : '') + '">' +
+        '<div class="top"><span class="name">' + esc(pr.name || pr.id) + '</span>' +
+        '<button class="btn small" data-toggle="' + esc(pr.id) + '">' + (pr.up ? bi('Mark down', 'השבתה') : bi('Back up', 'הפעלה')) + '</button></div>' +
+        '<div class="state">' + state + '</div>' +
+        (pr.note ? '<div class="note">' + esc(pr.note) + '</div>' : '') +
+        (acts ? '<div class="acts">' + acts + '</div>' : '') + '</div>';
+    }).join('');
+    el.querySelectorAll('[data-toggle]').forEach((b) => { b.onclick = () => togglePrinter(b.dataset.toggle); });
+    el.querySelectorAll('[data-start]').forEach((b) => { b.onclick = () => act('startPlate', { key: b.dataset.start, printer: b.dataset.on }, 'Started · התחיל'); });
+    el.querySelectorAll('[data-done]').forEach((b) => { b.onclick = () => finishPlate(b.dataset.done); });
+    el.querySelectorAll('[data-fail]').forEach((b) => { b.onclick = () => failPlate(b.dataset.fail); });
+  }
+
+  const TABS = [
+    ['queue', 'Queue', 'תור', (r) => ['Queued', 'Printing', 'On hold'].includes(r.status)],
+    ['ready', 'Ready for pickup', 'מוכן לאיסוף', (r) => r.status === 'Ready for pickup'],
+    ['closed', 'Closed (30 days)', 'סגורות (30 יום)', (r) => ['Picked up', 'Cancelled', 'Rejected', 'Abandoned'].includes(r.status)],
+    ['all', 'All', 'הכל', () => true],
+  ];
+  function renderTabs() {
+    $('tabs').innerHTML = TABS.map((t) => {
+      const n = S.data.requests.filter(t[3]).length;
+      return '<button data-tab="' + t[0] + '" class="' + (S.tab === t[0] ? 'on' : '') + '">' + bi(t[1], t[2]) + ' (' + n + ')</button>';
+    }).join('');
+    $('tabs').querySelectorAll('button').forEach((b) => { b.onclick = () => { S.tab = b.dataset.tab; renderTabs(); renderList(); }; });
+  }
+
+  function visible() {
+    const t = TABS.find((x) => x[0] === S.tab);
+    const q = S.search.trim().toLowerCase();
+    return S.data.requests.filter(t[3]).filter((r) => !q ||
+      [r.id, r.name, r.email, r.phone, r.department, r.course, r.studentKey, r.labNotes].join(' ').toLowerCase().includes(q));
+  }
+
+  function renderList() {
+    const rows = visible();
+    let pos = 0;
+    const head = '<div class="row head"><span></span><span>#</span><span>' + bi('Submission', 'הגשה') + '</span><span class="c-who">' + bi('Student', 'סטודנט/ית') +
+      '</span><span class="c-plates">' + bi('Plates', 'פלטות') + '</span><span class="c-dates">' + bi('Est. start → ready', 'התחלה ← מוכן') +
+      '</span><span>' + bi('Needed by', 'תאריך יעד') + '</span></div>';
+    const body = rows.map((r) => {
+      const inQ = ['Queued', 'Printing'].includes(r.status);
+      if (inQ) pos++;
+      const dots = r.plates.map((p) => '<span class="dot ' + esc(p.color) + ' ' + esc(p.state) + '" title="' + esc(p.key + ' · ' + p.state + (p.printer ? ' on ' + p.printer : '')) + '"></span>').join('');
+      const done = r.plates.filter((p) => p.state === 'done').length;
+      const dates = inQ ? (r.estStart ? esc(when(r.estStart)) : bi('printing', 'בהדפסה')) + ' → <b>' + esc(when(r.estReady)) + '</b>'
+        : r.status === 'On hold' ? bi('on hold', 'בהמתנה') + ' ' + esc(ago(r.statusChanged))
+        : r.status === 'Ready for pickup' ? bi('ready', 'מוכן') + ' ' + esc(ago(r.readyAt || r.statusChanged))
+          : esc(when(r.statusChanged));
+      return '<div class="row' + (S.open === r.id ? ' sel' : '') + '" data-id="' + esc(r.id) + '">' +
+        '<input type="checkbox" data-pick="' + esc(r.id) + '"' + (S.selected.has(r.id) ? ' checked' : '') + (r.platesFileUrl ? '' : ' disabled') + '>' +
+        '<span class="pos">' + (inQ ? pos : '') + '</span>' +
+        '<span><span class="id">' + esc(r.id) + '</span> ' + statusPill(r.status) + '<div class="sub">' + esc(when(r.submitted)) + '</div></span>' +
+        '<span class="c-who">' + esc(r.name || '(details wiped)') + '<div class="sub">' + esc(r.department) + ' · ' + esc(r.course) + '</div></span>' +
+        '<span class="c-plates"><div class="dots">' + dots + '</div><div class="sub">' + done + '/' + r.plates.length + ' · ' + dur(r.estMinutes) + '</div></span>' +
+        '<span class="c-dates">' + dates + '</span>' +
+        '<span>' + esc(r.deadline) + '<div>' + flags(r) + '</div></span></div>';
+    }).join('');
+    $('list').innerHTML = rows.length ? head + body : '<div class="empty">' + bi('Nothing here', 'אין כאן כלום') + '</div>';
+    $('list').querySelectorAll('.row[data-id]').forEach((el) => {
+      el.onclick = (e) => { if (e.target.matches('input')) return; S.open = el.dataset.id; renderList(); renderDrawer(); };
+    });
+    $('list').querySelectorAll('[data-pick]').forEach((cb) => {
+      cb.onchange = () => { cb.checked ? S.selected.add(cb.dataset.pick) : S.selected.delete(cb.dataset.pick); updateZip(); };
+    });
+    updateZip();
+  }
+  function updateZip() {
+    $('zipBtn').disabled = !S.selected.size;
+    $('zipBtn').innerHTML = 'Download plates (ZIP)' + (S.selected.size ? ' · ' + S.selected.size : '') + ' <span class="he">הורדת פלטות</span>';
+  }
+
+  // ---------- drawer
+  function renderDrawer() {
+    const r = S.data.requests.find((x) => x.id === S.open);
+    if (!r) { closeDrawer(); return; }
+    $('drawerWrap').hidden = false;
+    const upPrinters = S.data.printers.filter((p) => p.up);
+    const inQ = ['Queued', 'Printing'].includes(r.status);
+    const plates = r.plates.map((p) => {
+      let info = esc(STATE_HE[p.state] ? p.state : p.state) + ' <span class="he">' + esc(STATE_HE[p.state] || '') + '</span>';
+      let acts = '';
+      if (p.state === 'printing') {
+        info = bi('Printing on ' + p.printer, 'בהדפסה') + ' · ' + esc(when(p.started)) + ' → ~' + esc(when(p.expectedEnd));
+        acts = '<button class="btn small primary" data-done="' + esc(p.key) + '">✓ Done <span class="he">הסתיים</span></button>' +
+          '<button class="btn small danger" data-fail="' + esc(p.key) + '">✗ Failed <span class="he">נכשל</span></button>' +
+          '<button class="btn small" data-undo="' + esc(p.key) + '" title="Started by mistake">Undo <span class="he">ביטול</span></button>';
+      } else if (p.state === 'done') {
+        info = bi('Done', 'הסתיים') + ' · ' + esc(p.printer) + ', ' + esc(when(p.finished)) + (p.actualMinutes ? ' (' + dur(p.actualMinutes) + ')' : '');
+      } else if (p.state === 'waiting') {
+        if (p.plan) info += ' · ' + bi('planned', 'מתוכנן') + ' ' + esc(p.plan.printer) + ', ' + esc(when(p.plan.start));
+        if (inQ) {
+          const pref = p.plan && upPrinters.some((x) => x.id === p.plan.printer) ? p.plan.printer : (upPrinters[0] || {}).id;
+          acts = '<select data-printer="' + esc(p.key) + '">' + S.data.printers.map((x) =>
+            '<option value="' + esc(x.id) + '"' + (x.id === pref ? ' selected' : '') + (x.up ? '' : ' disabled') + '>' + esc(x.name || x.id) + (x.up ? '' : ' (down)') + '</option>').join('') + '</select>' +
+            '<button class="btn small primary" data-startp="' + esc(p.key) + '">▶ Start <span class="he">התחלה</span></button>';
+        }
+      }
+      if (p.attempts > 1 || p.note) info += '<div class="muted">' + (p.attempts > 1 ? 'Attempts: ' + p.attempts + '. ' : '') + esc(p.note || '') + '</div>';
+      return '<div class="plate"><span class="dot ' + esc(p.color) + ' ' + esc(p.state) + '"></span>' +
+        '<div><b>' + bi('Plate ' + p.n, 'פלטה ' + p.n) + '</b>' + (p.name ? ' “' + esc(p.name) + '”' : '') + ' · ' + esc(p.color) + ' · ' + dur(p.estMinutes) + ', ' + p.grams + ' g<div class="muted">' + info + '</div></div>' +
+        '<div class="acts">' + acts + '</div></div>';
+    }).join('');
+    const options = S.data.handlerStatuses.filter((s) => s !== r.status)
+      .map((s) => '<option value="' + esc(s) + '">' + esc(s) + ' · ' + esc(S.data.statuses[s]) + '</option>').join('');
+    const kv = (en, he, v) => v === '' || v == null ? '' : '<dt>' + bi(en, he) + '</dt><dd>' + v + '</dd>';
+    const link = (url, label) => url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + label + '</a>' : '';
+    $('drawer').innerHTML =
+      '<div class="dh"><span class="id">' + esc(r.id) + '</span>' + statusPill(r.status) + '<button class="x" id="dClose" aria-label="Close">×</button></div>' +
+      '<section><h3>' + bi('Student', 'סטודנט/ית') + '</h3><dl class="kv">' +
+        (r.name ? kv('Name', 'שם', esc(r.name)) + kv('Email', 'מייל', '<a href="mailto:' + esc(r.email) + '">' + esc(r.email) + '</a>') +
+          kv('Phone', 'טלפון', esc(r.phone)) + kv('ID number', 'ת״ז', esc(r.idNumber)) : kv('Contact', 'פרטי קשר', bi('wiped (retention period ended)', 'נמחקו בתום תקופת השמירה'))) +
+        kv('Department', 'מחלקה', esc(r.department)) + kv('Course', 'קורס', esc(r.course)) + kv('Needed by', 'תאריך יעד', esc(r.deadline) + ' ' + flags(r)) +
+        kv('Student notes', 'הערות', esc(r.notes)) + kv('Student key', 'מזהה', '<span class="muted">' + esc(r.studentKey) + '</span>') +
+      '</dl></section>' +
+      '<section><h3>' + bi('Print', 'הדפסה') + '</h3><dl class="kv">' +
+        kv('Files', 'קבצים', [link(r.folderUrl, 'Open folder · תיקייה'), link(r.platesDownloadUrl, 'Download plates.3mf · הורדה')].filter(Boolean).join(' · ') || '<span class="muted">deleted</span>') +
+        kv('Profile', 'פרופיל', esc(r.profile)) + kv('Laid out by', 'סידור', esc(r.layout)) + kv('Supports', 'תמיכות', esc(r.supports)) +
+        kv('Estimate', 'הערכה', dur(r.estMinutes) + ' · ₪' + r.estCost + ' · ' + r.grams + ' g') +
+        kv('Objects', 'אובייקטים', esc(r.objects)) +
+        kv('Submitted', 'הוגש', esc(when(r.submitted))) +
+        (inQ ? kv('Estimated ready', 'מוכן משוער', '<b>' + esc(when(r.estReady)) + '</b>' + (r.estReadyAtSubmit ? ' <span class="muted">(told student: ' + esc(when(r.estReadyAtSubmit)) + ')</span>' : '')) : '') +
+      '</dl></section>' +
+      '<section><h3>' + bi('Plates', 'פלטות') + '</h3>' + plates + '</section>' +
+      (OPENISH(r) ? '<section><h3>' + bi('Queue position', 'מיקום בתור') + '</h3><div class="row-flex">' +
+        '<button class="btn" data-move="top">⤒ Move to top <span class="he">לראש התור</span></button>' +
+        '<button class="btn" data-move="up">↑ Up <span class="he">למעלה</span></button>' +
+        '<button class="btn" data-move="down">↓ Down <span class="he">למטה</span></button></div></section>' : '') +
+      '<section><h3>' + bi('Change status', 'שינוי סטטוס') + '</h3>' +
+        '<div class="row-flex"><select id="stSel">' + options + '</select>' +
+        '<label><input type="checkbox" id="stEmail"> ' + bi('Email the student', 'שליחת מייל') + '</label></div>' +
+        '<textarea id="stMsg" placeholder="Message to include in the email (optional) · הודעה למייל (לא חובה)" style="margin-top:8px"></textarea>' +
+        '<div class="row-flex"><button class="btn" id="stPreview">' + bi('Preview email', 'תצוגה מקדימה') + '</button>' +
+        '<button class="btn primary" id="stApply">' + bi('Apply', 'עדכון') + '</button></div><div id="stPrev"></div></section>' +
+      '<section><h3>' + bi('Lab notes', 'הערות המעבדה') + '</h3><textarea id="labNotes">' + esc(r.labNotes) + '</textarea>' +
+        '<div class="row-flex"><button class="btn" id="saveNotes">' + bi('Save notes', 'שמירה') + '</button></div></section>';
+
+    $('dClose').onclick = closeDrawer;
+    const dr = $('drawer');
+    dr.querySelectorAll('[data-done]').forEach((b) => { b.onclick = () => finishPlate(b.dataset.done); });
+    dr.querySelectorAll('[data-fail]').forEach((b) => { b.onclick = () => failPlate(b.dataset.fail); });
+    dr.querySelectorAll('[data-undo]').forEach((b) => { b.onclick = () => act('unstartPlate', { key: b.dataset.undo }, 'Undone · בוטל'); });
+    dr.querySelectorAll('[data-startp]').forEach((b) => {
+      b.onclick = () => act('startPlate', { key: b.dataset.startp, printer: dr.querySelector('[data-printer="' + b.dataset.startp + '"]').value }, 'Started · התחיל');
+    });
+    dr.querySelectorAll('[data-move]').forEach((b) => { b.onclick = () => act('move', { id: r.id, to: b.dataset.move }); });
+    const syncEmail = () => {
+      const s = $('stSel').value;
+      const can = S.data.emailStatuses.includes(s) && r.email;
+      $('stEmail').disabled = !can;
+      $('stEmail').checked = can && ['Ready for pickup', 'Rejected', 'On hold'].includes(s);
+      $('stPreview').disabled = !can;
+      $('stPrev').innerHTML = '';
+    };
+    $('stSel').onchange = syncEmail;
+    syncEmail();
+    $('stPreview').onclick = async () => {
+      const p = await call('previewEmail', { id: r.id, status: $('stSel').value, message: $('stMsg').value }).catch(() => null);
+      if (!p) return;
+      $('stPrev').innerHTML = '<div class="preview"><div class="muted">To: ' + esc(p.to) + '<br>Subject: ' + esc(p.subject) + '</div><iframe sandbox style="width:100%;height:240px;border:0" id="prevFrame"></iframe></div>';
+      $('prevFrame').srcdoc = p.html;
+    };
+    $('stApply').onclick = () => {
+      const s = $('stSel').value;
+      const email = $('stEmail').checked;
+      ask('Set ' + r.id + ' to “' + s + '”?', email ? bi('The student will be emailed.', 'יישלח מייל לסטודנט/ית.') : bi('No email will be sent.', 'לא יישלח מייל.'), () =>
+        act('setStatus', { id: r.id, status: s, email, message: $('stMsg').value }, 'Updated · עודכן'));
+    };
+    $('saveNotes').onclick = () => act('saveNotes', { id: r.id, notes: $('labNotes').value }, 'Saved · נשמר');
+  }
+  const OPENISH = (r) => ['Queued', 'Printing', 'On hold'].includes(r.status);
+  function closeDrawer() { S.open = null; $('drawerWrap').hidden = true; renderList(); }
+  $('shade').onclick = closeDrawer;
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.open && !document.querySelector('dialog[open]')) closeDrawer(); });
+
+  // ---------- actions with a question first
+  let askOk = null;
+  function ask(title, bodyHtml, ok) {
+    $('askTitle').textContent = title;
+    $('askBody').innerHTML = bodyHtml;
+    askOk = ok;
+    $('askDialog').showModal();
+  }
+  $('askCancel').onclick = () => $('askDialog').close();
+  $('askOk').onclick = () => { $('askDialog').close(); if (askOk) askOk(); };
+
+  function finishPlate(key) {
+    const x = plateByKey(key);
+    const now = S.data.now;
+    ask('Plate ' + key + ' done', '<p>' + bi('When did it finish?', 'מתי ההדפסה הסתיימה?') + '</p>' +
+      '<input type="datetime-local" id="finAt" value="' + localInput(now) + '" min="' + (x ? localInput(x.p.started) : '') + '" max="' + localInput(now) + '">' +
+      '<p class="muted">' + bi('Change this if it finished overnight — real print times make estimates better.', 'יש לעדכן אם הסתיימה בלילה — זמנים אמיתיים משפרים את ההערכות.') + '</p>',
+    () => act('finishPlate', { key, finished: fromLocalInput($('finAt').value) }, 'Done · הסתיים'));
+  }
+  function failPlate(key) {
+    ask('Plate ' + key + ' failed', '<p>' + bi('It goes back to the front of this request, to be printed again.', 'הפלטה חוזרת לתור כדי להדפיס אותה שוב.') + '</p>' +
+      '<input type="text" id="failNote" placeholder="What happened? · מה קרה?" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px">',
+    () => act('failPlate', { key, note: $('failNote').value }, 'Back in the queue · חזרה לתור'));
+  }
+  function togglePrinter(id) {
+    const pr = S.data.printers.find((p) => p.id === id);
+    if (pr.up) {
+      ask('Mark ' + (pr.name || id) + ' as out of service', '<p>' + bi('Estimates will be recalculated without it.', 'ההערכות יחושבו מחדש בלעדיה.') + '</p>' +
+        '<input type="text" id="prNote" placeholder="Reason · סיבה" value="' + esc(pr.note) + '" style="width:100%;border:1px solid var(--line);border-radius:6px;padding:5px">',
+      () => act('setPrinter', { id, up: false, note: $('prNote').value }, 'Printer marked down · המדפסת הושבתה'));
+    } else {
+      act('setPrinter', { id, up: true, note: '' }, 'Printer working · המדפסת פועלת');
+    }
+  }
+
+  // ---------- closed dates
+  function dateRow(d) {
+    const div = document.createElement('div');
+    div.className = 'd';
+    div.innerHTML = '<input type="date" value="' + esc(d.date) + '"><input type="text" placeholder="Note · הערה" value="' + esc(d.note) + '"><button class="btn small">✕</button>';
+    div.querySelector('button').onclick = () => div.remove();
+    return div;
+  }
+  $('datesBtn').onclick = () => {
+    const list = $('datesList');
+    list.innerHTML = '';
+    const today = dayKey(S.data.now);
+    S.data.closedDates.filter((d) => d.date >= today).forEach((d) => list.appendChild(dateRow(d)));
+    $('datesDialog').showModal();
+  };
+  $('addDate').onclick = () => $('datesList').appendChild(dateRow({ date: '', note: '' }));
+  $('datesCancel').onclick = () => $('datesDialog').close();
+  $('datesSave').onclick = () => {
+    const today = dayKey(S.data.now);
+    const keepPast = S.data.closedDates.filter((d) => d.date < today);
+    const dates = keepPast.concat([...$('datesList').children].map((div) => {
+      const [a, b] = div.querySelectorAll('input');
+      return { date: a.value, note: b.value };
+    }).filter((d) => d.date));
+    $('datesDialog').close();
+    act('setClosedDates', { dates }, 'Saved · נשמר');
+  };
+
+  // ---------- misc
+  $('search').oninput = (e) => { S.search = e.target.value; renderList(); };
+  $('refreshBtn').onclick = load;
+  $('zipBtn').onclick = async () => {
+    const d = await act('zip', { ids: [...S.selected] });
+    if (d && d.url) {
+      ask('ZIP ready · הקובץ מוכן', '<p><a href="' + esc(d.url) + '" target="_blank" rel="noopener">' + esc(d.name) + '</a> (' + d.count + ' files)</p>' +
+        '<p class="muted">' + bi('It is deleted automatically tonight.', 'הקובץ יימחק אוטומטית הלילה.') + '</p>', null);
+      S.selected.clear();
+      renderList();
+    }
+  };
+  let toastTimer = null;
+  function toast(msg, err) {
+    let t = document.querySelector('.toast');
+    if (!t) { t = document.createElement('div'); document.body.appendChild(t); }
+    t.className = 'toast' + (err ? ' err' : '');
+    t.textContent = msg;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.remove(), err ? 6000 : 2500);
+  }
+  // Keep it current without getting in the way: refresh every minute unless a request or dialog is open.
+  setInterval(() => { if (!document.hidden && !S.open && !document.querySelector('dialog[open]')) load(); }, 60000);
+  load();
+})();
+</script>
+</body>
+</html>

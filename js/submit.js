@@ -3,7 +3,7 @@
 // Three steps so each request stays well under Apps Script's ~50 MB limit:
 //   begin  → creates the Drive folder + Sheet row, returns { id, token }
 //   file   → uploads one file (base64) into that folder (repeated per file)
-//   finish → marks the row as New and sends the confirmation email
+//   finish → puts it in the queue; returns { id, trackUrl, estimate }
 
 import { CONFIG } from './config.js';
 
@@ -42,7 +42,7 @@ function toBase64(blob) {
  * @param order   print/estimate details
  * @param files   [{ name, blob, kind }]
  * @param onStatus (stage, index, total) callback for UI updates
- * @returns submission id
+ * @returns { id, trackUrl, estimate } from the backend
  */
 export async function submitPrint({ details, order, files, onStatus = () => {} }) {
   const center = CONFIG.centers?.find((c) => c.id === order.center);
@@ -64,6 +64,6 @@ export async function submitPrint({ details, order, files, onStatus = () => {} }
     });
   }
   onStatus('finish', files.length, files.length);
-  await post({ action: 'finish', id, token });
-  return id;
+  const done = await post({ action: 'finish', id, token });
+  return { id, trackUrl: done.trackUrl || '', estimate: done.estimate || null };
 }
