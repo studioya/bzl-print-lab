@@ -232,6 +232,17 @@ test('Bambu project 3MF keeps every piece on its plate, with the lab presets', a
   assert.equal((await parse3MF(await blob.arrayBuffer())).length, cube.length * 5);
 });
 
+test('a model exactly as big as the printable area fits; anything over it does not', async () => {
+  const { orientMesh, IDENTITY3 } = await import('../js/mesh.js');
+  // Off-centre coordinates make the 32-bit size come out as 240.000003 mm.
+  const exact = orientMesh(fx.f32(fx.box(PLATE.width, 100, PLATE.height, 7.3, -3.1, 2)), IDENTITY3, 1);
+  assert.ok(exact.size.x > PLATE.width, 'rounding makes it a hair over');
+  assert.equal(fitsPlate(exact.size), true);
+  assert.ok(findFreeSpot(exact.size, [], 12), 'and it can be placed');
+  assert.equal(fitsPlate({ x: PLATE.width + 0.01, y: 10, z: 10 }), false);
+  assert.equal(fitsPlate({ x: 10, y: 10, z: PLATE.height + 0.01 }), false);
+});
+
 test('arranging helpers: footprints, overlap, free spots, clamping', () => {
   const sq = footprint(fx.f32(fx.box(10, 10, 4, -5, -5, 0)));
   assert.equal(sq.length, 4);

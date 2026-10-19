@@ -8,7 +8,9 @@ export const PLATE = {
   height: PRINTER.printableHeight,
 };
 
-const EPS = 1e-6;
+// Sizes come from 32-bit coordinates, so a model drawn exactly 240 mm wide can
+// measure 240.000003 mm. Allow 0.001 mm: only models really over the limit fail.
+const EPS = 1e-3;
 
 /** Does an object of this size fit the printable volume? */
 export function fitsPlate(size) {
