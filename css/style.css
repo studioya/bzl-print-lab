@@ -452,3 +452,49 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
 .kpi.ready.unavailable .kpi-ready { font-size: 15px; color: var(--warn); }
 .policy-note { margin-top: 6px; font-size: 13.5px; line-height: 1.45; color: var(--ink); }
 .policy-note .he { display: block; margin-top: 3px; }
+
+/* ---------- breathing room ----------
+   More space between paragraphs and blocks in the side panels, so notes and
+   the Hebrew lines under them are easy to read and don't get skipped. */
+.panel { line-height: 1.45; }
+.he { margin-top: 3px; line-height: 1.5; }
+.hint { margin: 10px 0; line-height: 1.5; }
+
+/* 1 · Models */
+.object-list { gap: 10px; margin-top: 12px; }
+.obj { padding: 10px 12px; gap: 5px; }
+.obj-meta { line-height: 1.45; }
+.obj-actions { margin-top: 6px; gap: 6px; }
+.units-row { margin-top: 14px; }
+
+/* 3 · Orientation & size */
+.orient-target { margin: 0 0 12px; line-height: 1.45; }
+.orient-target .he { margin-top: 3px; }
+.orient-tools { gap: 12px; }
+.rot-grid { gap: 6px 8px; }
+.scale-row { margin-top: 4px; }
+.fit { margin-top: 16px; padding: 11px 13px; line-height: 1.5; }
+.fit .he { margin-top: 6px; }
+.slice-btns { gap: 12px; }
+
+/* Estimate */
+.kpi { padding: 12px 14px; margin-bottom: 12px; }
+.kpi-label { margin-bottom: 4px; }
+.kpi-sub { line-height: 1.5; margin-top: 6px; }
+.price-line { margin-top: 8px; }
+.est-missing { margin-top: 8px; line-height: 1.45; }
+.est-missing .he { margin-top: 4px; }
+.kpi.ready .kpi-ready { margin: 4px 0 10px; line-height: 1.35; }
+.kpi.ready .kpi-ready .he { margin-top: 6px; }
+.kpi.ready .kpi-sub .he { margin-top: 5px; }
+.policy-note { margin-top: 8px; line-height: 1.5; }
+.policy-note .he { margin-top: 8px; }
+.free-note { margin-top: 10px; padding: 9px 11px; }
+.free-note .he { margin-top: 5px; }
+.est-plates { margin: 14px 0 8px; }
+.est-plates td { padding: 5px 0; }
+.facts { gap: 8px 10px; margin: 16px 0; }
+.disclaimer { padding-top: 12px; line-height: 1.5; }
+.disclaimer .he { margin-top: 5px; }
+.estimate-empty { line-height: 1.5; }
+.estimate-empty .he { margin-top: 8px; }
