@@ -19,6 +19,16 @@ export const CONFIG = {
     perGram: 0.05,  // ₪ per gram of filament
     perHour: 5,     // ₪ per hour of estimated printing time
     minimum: 10,    // ₪ minimum for each plate printed
+    // false: printing is free for now, and the cost is shown as what it will
+    // cost once payment is required. Also set CHARGING in apps-script/Code.gs.
+    charging: false,
+  },
+
+  // Minimums for showing a ready date (the backend's SETTINGS.ESTIMATE wins
+  // once it's connected). Below them the page says it can't estimate.
+  estimate: {
+    minPrintersUp: 2,    // fewer working printers → no date
+    maxWorkingDays: 15,  // further away → "more than 3 weeks"
   },
   currency: '₪',
 

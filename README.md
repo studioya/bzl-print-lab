@@ -128,6 +128,16 @@ holds up the others.
   Each plate counts the slicer's time plus 10 min handling. As plates are marked done, the real
   print times are compared with the slicer's and the estimates correct themselves. The site uses
   the same engine to show a student, before submitting, when their print would be ready.
+  A date is only shown when it's reliable: every plate sliced, the queue reachable, at least
+  2 printers working, and no more than 15 working days away (`SETTINGS.ESTIMATE` in `Code.gs`).
+  Otherwise the student sees that a date can't be estimated right now (or "more than 3 weeks"),
+  and that they'll be emailed when it's ready.
+- **Cost:** students aren't charged yet. The cost is shown as what printing will cost once payment
+  is required (`pricing.charging` in `js/config.js` and `CHARGING` in `Code.gs`; set both to `true`
+  when payment starts).
+- **Plate pictures:** when a student submits, the page renders a picture of each plate as they laid
+  it out (a close-up of the pieces, with the whole plate from above in the corner), saved as
+  `PREVIEW – plate N.jpg`. The dashboard shows them in each request; click one to enlarge.
 - **The dashboard** shows each printer (printing what, until when, what's next, with *Start* /
   *Done* / *Failed* buttons; *Mark down* takes it out of the estimates), the queue with estimated
   start and ready times, deadline-risk flags, and each request's details, files, plates, status

@@ -166,6 +166,20 @@ function estimateRange(readyMs, input) {
 }
 
 /**
+ * Is an estimate good enough to show? Below these minimums the date would be
+ * a guess, so we say we can't estimate instead of giving a wrong date.
+ * rules: { minPrintersUp, maxWorkingDays }
+ * @returns { ok: true } or { ok: false, reason: 'printers' | 'far' | 'none' }
+ */
+function checkEstimate(est, printersUp, rules) {
+  const r = rules || {};
+  if (printersUp < (r.minPrintersUp || 1)) return { ok: false, reason: 'printers' };
+  if (!est) return { ok: false, reason: 'none' };
+  if (r.maxWorkingDays && est.days > r.maxWorkingDays) return { ok: false, reason: 'far' };
+  return { ok: true };
+}
+
+/**
  * Correction factor for slicer estimates, learned from finished plates:
  * the median of actual ÷ estimated minutes, clamped to a sane range.
  * @param samples [{ estimated, actual }] (minutes)

@@ -42,7 +42,7 @@ function toBase64(blob) {
  * @param order   print/estimate details
  * @param files   [{ name, blob, kind }]
  * @param onStatus (stage, index, total) callback for UI updates
- * @returns { id, trackUrl, estimate } from the backend
+ * @returns { id, trackUrl, estimate, estimateIssue } from the backend
  */
 export async function submitPrint({ details, order, files, onStatus = () => {} }) {
   const center = CONFIG.centers?.find((c) => c.id === order.center);
@@ -65,5 +65,5 @@ export async function submitPrint({ details, order, files, onStatus = () => {} }
   }
   onStatus('finish', files.length, files.length);
   const done = await post({ action: 'finish', id, token });
-  return { id, trackUrl: done.trackUrl || '', estimate: done.estimate || null };
+  return { id, trackUrl: done.trackUrl || '', estimate: done.estimate || null, estimateIssue: done.estimateIssue || null };
 }
