@@ -46,6 +46,8 @@ const SETTINGS = {
   },
   // Students aren't charged yet: the cost is shown as what it will cost once payment is required.
   CHARGING: false,
+  // false: emails don't quote a price; they say a pricing policy is coming (matches js/config.js showCost).
+  SHOW_COST: false,
   PRINTERS: 6,
   CONTACT_RETENTION_DAYS: 180,         // personal details are wiped this long after a request closes
   FILE_RETENTION_DAYS: 365,            // model files are deleted this long after closing (0 = keep)
@@ -788,7 +790,8 @@ function buildEmail_(kind, r, contact, opts) {
       ['Plates', 'פלטות', r.plates + ' (' + r.colors + ')'],
       ['Needed by', 'תאריך יעד', r.deadline],
       ['Estimated print time', 'זמן הדפסה משוער', r.estMinutes + ' min'],
-      SETTINGS.CHARGING ? ['Estimated cost', 'עלות משוערת', '₪' + r.estCost]
+      !SETTINGS.SHOW_COST ? ['Cost', 'עלות', 'Bezalel is working on a pricing policy. Printing won\'t always be free. · בצלאל עובדת על מדיניות תמחור. ההדפסות לא יהיו תמיד ללא תשלום.']
+        : SETTINGS.CHARGING ? ['Estimated cost', 'עלות משוערת', '₪' + r.estCost]
         : ['Future cost', 'עלות עתידית', '₪' + r.estCost + ' — free for now; this is what it will cost once payment is required · ללא תשלום כרגע; זו תהיה העלות כשהתשלום יהיה חובה'],
       ['Estimated ready', 'מוכן משוער', est.en + ' · ' + est.he],
     ];

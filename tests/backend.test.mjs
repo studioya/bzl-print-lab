@@ -302,6 +302,7 @@ test('estimates below the minimums are withheld, with the reason', () => {
   assert.equal(s.estimateIssue, 'printers');
   assert.match(b.outbox().rows[1][4], /can&#39;t be estimated|can't be estimated/);
   assert.deepEqual(b.get({ action: 'queue' }).rules, { minPrintersUp: 2, maxWorkingDays: 15 });
-  // Free for now: the email says so.
-  assert.match(b.outbox().rows[1][4], /free for now/);
+  // No price in the email for now: a pricing-policy note instead.
+  assert.match(b.outbox().rows[1][4], /working on a pricing policy/);
+  assert.doesNotMatch(b.outbox().rows[1][4], /₪17/);
 });

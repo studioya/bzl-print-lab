@@ -1074,7 +1074,11 @@ function renderEstimate() {
   $('estTime').textContent = fmtDuration(t.seconds);
   const pr = t.price, rate = CONFIG.pricing;
   $('estCost').textContent = money(pr.total);
-  $('estFree').hidden = !!CONFIG.pricing.charging;
+  const showCost = CONFIG.pricing.showCost !== false;
+  $('estFree').hidden = !showCost || !!CONFIG.pricing.charging;
+  for (const id of ['estCost', 'estRate']) $(id).hidden = !showCost;
+  $('estPolicy').hidden = showCost;
+  $('estCostLabel').innerHTML = showCost ? `Estimated cost ${he('עלות משוערת')}` : `Cost ${he('עלות')}`;
   // How the price is made up.
   const rateOf = (v) => `${CONFIG.currency}${+v.toFixed(2)}`; // ₪0.05, ₪5
   $('estRate').innerHTML = `<div class="price-line"><span>Material ${he('חומר')}</span><b>${money(pr.material)}</b>
@@ -1083,18 +1087,21 @@ function renderEstimate() {
       <small>${fmt(t.seconds / 3600, 2)} h × ${rateOf(rate.perHour)}/h</small></div>
     ${pr.minimumTopUp > 0 ? `<div class="price-line"><span>Plate minimum ${he('מינימום')}</span><b>+${money(pr.minimumTopUp)}</b>
       <small>${used.length > 1 ? `Plate ${pr.platesAtMinimum.map((i) => sliced[i].index + 1).join(', ')} raised` : 'Raised'} to the ${money(pr.minimum)} minimum per plate · מחיר מינימום ${money(pr.minimum)} למשטח</small></div>` : ''}
-    ${missing.length ? `<div class="est-missing">Plate ${missing.join(', ')} not sliced yet: press <b>Slice all plates</b> for the full total.
-        ${he(`משטח ${missing.join(', ')} עדיין לא נפרס: לחצו ״פריסת כל המשטחים״ לסכום המלא.`)}</div>` : ''}`;
+    `;
+  $('estMissing').hidden = !missing.length;
+  $('estMissing').innerHTML = missing.length ? `Plate ${missing.join(', ')} not sliced yet: press <b>Slice all plates</b> for the full total.
+        ${he(`משטח ${missing.join(', ')} עדיין לא נפרס: לחצו ״פריסת כל המשטחים״ לסכום המלא.`)}` : '';
   // Summary per plate, with the total across plates.
   const table = $('estPlates');
   table.hidden = used.length < 2;
   if (used.length >= 2) {
-    table.innerHTML = `<div class="est-plates-head">Cost per plate ${he('עלות לפי משטח')}</div>
+    const costCell = (v, tag) => (showCost ? `<td class="num-col">${money(v)}${tag || ''}</td>` : '');
+    table.innerHTML = `<div class="est-plates-head">${showCost ? `Cost per plate ${he('עלות לפי משטח')}` : `Time per plate ${he('זמן לפי משטח')}`}</div>
       <table>${used.map(({ index, result: r }) => `<tr class="${index === state.plateIndex ? 'current' : ''}">
         <td class="plate-label" title="${escapeHtml(plateTitle(index))}">${escapeHtml(plateTitle(index))}</td>
-        ${r ? `<td class="num-col">${fmtDuration(r.seconds)}</td><td class="num-col">${money(r.cost)}${r.atMinimum ? '<span class="min-tag">min</span>' : ''}</td>`
-    : `<td class="num-col muted" colspan="2">not sliced · לא נפרס</td>`}</tr>`).join('')}
-        <tr class="total"><td>Total${he('סה״כ')}</td><td class="num-col">${fmtDuration(t.seconds)}</td><td class="num-col">${money(pr.total)}</td></tr>
+        ${r ? `<td class="num-col">${fmtDuration(r.seconds)}</td>${costCell(r.cost, r.atMinimum ? '<span class="min-tag">min</span>' : '')}`
+    : `<td class="num-col muted" colspan="${showCost ? 2 : 1}">not sliced · לא נפרס</td>`}</tr>`).join('')}
+        <tr class="total"><td>Total${he('סה״כ')}</td><td class="num-col">${fmtDuration(t.seconds)}</td>${costCell(pr.total)}</tr>
       </table>`;
   }
   const rows = [

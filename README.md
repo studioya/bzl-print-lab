@@ -132,7 +132,7 @@ holds up the others.
   2 printers working, and no more than 15 working days away (`SETTINGS.ESTIMATE` in `Code.gs`).
   Otherwise the student sees that a date can't be estimated right now (or "more than 3 weeks"),
   and that they'll be emailed when it's ready.
-- **Cost:** students aren't charged yet. The cost is shown as what printing will cost once payment
+- **Cost:** prices are hidden for now (`pricing.showCost` in `js/config.js`, `SHOW_COST` in `Code.gs`); the page and emails say Bezalel is working on a pricing policy and printing won't always be free. When prices are shown, students aren't charged yet: the cost is shown as what printing will cost once payment
   is required (`pricing.charging` in `js/config.js` and `CHARGING` in `Code.gs`; set both to `true`
   when payment starts).
 - **Plate pictures:** when a student submits, the page renders a picture of each plate as they laid
