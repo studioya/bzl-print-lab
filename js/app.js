@@ -14,6 +14,7 @@ import { Viewer } from './viewer.js';
 import { submitPrint } from './submit.js';
 import { initTooltips, hideTooltip } from './tooltip.js';
 import { plateCost, submissionPrice } from './pricing.js';
+import { backendUrl, fetchQueue, fetchStatus, estimateFor, formatEstimate, pastDeadline } from './queue.js';
 
 const $ = (id) => document.getElementById(id);
 const he = (text) => `<span class="he" lang="he" dir="rtl">${text}</span>`;
@@ -316,7 +317,8 @@ function initControls() {
 
   $('form').addEventListener('submit', onSubmit);
   $('form').addEventListener('input', (e) => e.target.classList.remove('invalid'));
-  $('doneClose').addEventListener('click', () => location.reload());
+  $('doneClose').addEventListener('click', () => { location.href = location.pathname; });
+  $('fDeadline').addEventListener('change', updateReadyEstimate);
 }
 
 function cancelPick() {
@@ -1103,6 +1105,81 @@ function renderEstimate() {
     ['Supports', 'תמיכות', t.hasSupport ? 'Yes · כן' : 'No · לא'],
   ];
   $('estFacts').innerHTML = rows.map(([en, h, v]) => `<div class="fact"><span class="fact-label">${en}${he(h)}</span><b>${v}</b></div>`).join('');
+  updateReadyEstimate();
+}
+
+// ---------------------------------------------------------------- delivery estimate + tracking
+
+let readyToken = 0;
+/** "Estimated ready" from the lab's live queue, with these plates added at the end. */
+function updateReadyEstimate() {
+  const box = $('estReadyBox');
+  const plates = usedPlates().filter((x) => x.result).map((x) => ({ minutes: x.result.minutes }));
+  if (!backendUrl() || !plates.length) { box.hidden = true; return; }
+  const token = ++readyToken;
+  fetchQueue().then((snap) => {
+    if (token !== readyToken) return;
+    const est = estimateFor(snap, plates);
+    const f = formatEstimate(est);
+    box.hidden = false;
+    $('estReady').innerHTML = `${escapeHtml(f.en)}${he(escapeHtml(f.he))}`;
+    const late = pastDeadline(est, $('fDeadline').value);
+    $('estLate').hidden = !late;
+    if (late) {
+      $('estLate').innerHTML = `This is after your “needed by” date. Submit as early as you can, or talk to the lab.
+        ${he('זה אחרי תאריך היעד שלכם. כדאי להגיש מוקדם ככל האפשר או לפנות למעבדה.')}`;
+    }
+  }).catch(() => { if (token === readyToken) box.hidden = true; });
+}
+
+const STATUS_TEXT = {
+  'Queued': ['In the queue', 'בתור'],
+  'Printing': ['Printing', 'בהדפסה'],
+  'On hold': ['On hold — check your email', 'בהמתנה — בדקו את המייל'],
+  'Ready for pickup': ['Ready for pickup!', 'מוכן לאיסוף!'],
+  'Picked up': ['Picked up', 'נאסף'],
+  'Cancelled': ['Cancelled', 'בוטל'],
+  'Rejected': ['Not accepted — check your email', 'לא התקבל — בדקו את המייל'],
+  'Abandoned': ['Upload not completed', 'ההעלאה לא הושלמה'],
+};
+
+function initTracking() {
+  const dialog = $('trackDialog');
+  const open = (id) => {
+    if (id) $('trackId').value = id;
+    $('trackResult').innerHTML = '';
+    dialog.showModal();
+    if (id) lookUp(); else $('trackId').focus();
+  };
+  const lookUp = async () => {
+    const id = $('trackId').value.trim().toUpperCase();
+    const out = $('trackResult');
+    if (!backendUrl()) { out.innerHTML = `<p class="muted">Tracking isn't set up yet. ${he('המעקב עדיין לא הופעל.')}</p>`; return; }
+    if (!id) return;
+    out.innerHTML = `<p class="muted">Checking… ${he('בודק…')}</p>`;
+    try {
+      const r = await fetchStatus(id);
+      if (!r.ok) { out.innerHTML = `<p class="error">${escapeHtml(r.error)}${he('ההגשה לא נמצאה. בדקו את המספר במייל האישור.')}</p>`; return; }
+      const [en, h] = STATUS_TEXT[r.status] || [r.status, r.statusHe];
+      const p = r.plates;
+      const est = r.estimate ? formatEstimate(r.estimate) : null;
+      out.innerHTML = `<div class="track-status s-${escapeHtml(r.status.replace(/ /g, '-'))}">${escapeHtml(en)}${he(escapeHtml(h))}</div>
+        <dl class="track-facts">
+          <dt>Submission ${he('הגשה')}</dt><dd>${escapeHtml(r.id)}</dd>
+          ${p.total ? `<dt>Plates printed ${he('משטחים שהודפסו')}</dt><dd>${p.done} / ${p.total}${p.printing ? ` · ${p.printing} printing now ${he('בהדפסה כעת')}` : ''}</dd>` : ''}
+          ${r.ahead > 0 ? `<dt>Ahead in the queue ${he('לפניכם בתור')}</dt><dd>${r.ahead}</dd>` : ''}
+          ${est ? `<dt>Estimated ready ${he('מוכן בערך')}</dt><dd><b>${escapeHtml(est.en)}</b>${he(escapeHtml(est.he))}</dd>` : ''}
+        </dl>
+        ${est ? `<p class="muted">Estimates change as the queue moves. ${he('ההערכה משתנה עם התקדמות התור.')}</p>` : ''}`;
+    } catch {
+      out.innerHTML = `<p class="error">Could not reach the lab's server. Try again later. ${he('אין חיבור לשרת המעבדה. נסו שוב מאוחר יותר.')}</p>`;
+    }
+  };
+  $('trackBtn').addEventListener('click', () => open(''));
+  $('trackClose').addEventListener('click', () => dialog.close());
+  $('trackForm').addEventListener('submit', (e) => { e.preventDefault(); lookUp(); });
+  const fromUrl = new URLSearchParams(location.search).get('track');
+  if (fromUrl) open(fromUrl);
 }
 
 function showPlatePreview() {
@@ -1294,6 +1371,9 @@ async function onSubmit(e) {
   }
   dropEmptyPlates();
   const t = totals();
+  const platesDetail = usedPlates().map(({ index, result: r }) => ({
+    name: plateName(index), color: plateColor(index), minutes: r.minutes, grams: Math.round(r.grams * 10) / 10,
+  }));
   const fileName = (id) => state.files.find((f) => f.id === id)?.file.name || '';
   const details = {
     name: $('fName').value.trim(),
@@ -1329,6 +1409,7 @@ async function onSubmit(e) {
     copies: totalCopies(),
     plates: t.plates,
     plateLayout: plateLayout(),
+    platesDetail,
     estimatedMinutes: t.minutes,
     estimatedCost: t.price.total,
     costBreakdown: { ...t.price, minimumPlates: t.price.platesAtMinimum.map((i) => i + 1), perGram: CONFIG.pricing.perGram, perHour: CONFIG.pricing.perHour },
@@ -1350,7 +1431,7 @@ async function onSubmit(e) {
       ...state.files.map((f) => ({ name: f.file.name, blob: f.file, kind: 'original' })),
       { name: 'plates.3mf', blob: plate3mf, kind: 'plates' },
     ];
-    const id = await submitPrint({
+    const { id, trackUrl, estimate } = await submitPrint({
       details, order, files,
       onStatus: (stage, i, n) => {
         setSubmitStatus(stage === 'begin' ? 'Creating submission… · יוצר הגשה…'
@@ -1361,6 +1442,10 @@ async function onSubmit(e) {
     setSubmitStatus('');
     $('doneId').textContent = id;
     $('doneIdHe').textContent = id;
+    $('doneTrack').href = trackUrl || `${location.pathname}?track=${encodeURIComponent(id)}`;
+    const est = estimate && formatEstimate(estimate);
+    $('doneEst').hidden = !est;
+    if (est) $('doneEst').innerHTML = `Estimated ready: <b>${escapeHtml(est.en)}</b>${he(`מוכן בערך: <b>${escapeHtml(est.he)}</b>`)}`;
     $('doneDialog').showModal();
   } catch (err) {
     setSubmitStatus(escapeHtml(err.message), true);
@@ -1381,6 +1466,7 @@ function fmtDuration(sec) {
 }
 
 initTooltips();
+initTracking();
 initCenters();
 initProfiles();
 initControls();

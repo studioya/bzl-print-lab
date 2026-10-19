@@ -5,12 +5,9 @@ export const CONFIG = {
   // submission backend"). Leave empty to run the page without submissions.
   appsScriptUrl: '',
 
-  // Where students can send their print. The ids must match SETTINGS.CENTERS
-  // in apps-script/Code.gs, which decides each center's Drive folder and Sheet.
-  // A center can have its own appsScriptUrl (e.g. a script on another Google
-  // account); otherwise the one above is used.
-  // With only one center listed, students don't see the "Send to" choice and
-  // everything goes to it. Uncomment architecture to offer the choice again.
+  // The modelling center(s). With one listed, students don't see a "Send to"
+  // choice. A second center would need its own backend (its own copy of
+  // apps-script/, deployed from its own account) set as its appsScriptUrl.
   centers: [
     { id: 'main', en: 'Bezalel Main Modelling Center', he: 'מרכז הדיגום הראשי של בצלאל' },
     // { id: 'architecture', en: 'Bezalel Architecture Modelling Center', he: 'מרכז הדיגום של המחלקה לארכיטקטורה' },

@@ -21,10 +21,12 @@ A single web page where students:
 7. **slice in the browser** with *Slice this plate* or *Slice all plates* and get a Bambu-style
    toolpath preview plus a **time and cost estimate**: the total across all plates and each plate's
    time and cost. A plate's result is kept until that plate changes; submitting needs every plate sliced,
-8. fill in their details and **submit** (to the Bezalel Main Modelling Center; a second center, Architecture,
-   is prepared but switched off: uncomment it in `js/config.js` and `Code.gs` to offer the choice). The model lands in the lab's Google Drive folder
-   `STUDENT 3D SUBMISSIONS`, the details go into a Google Sheet with a Status column, and the
-   student gets a confirmation email.
+8. see **when it would be ready**, from the lab's live queue,
+9. fill in their details and **submit** to the Bezalel Main Modelling Center. It goes straight into
+   the print queue; the student gets a confirmation email with a **submission number** they can use
+   on the site to **track** the status and current estimate,
+10. and the lab runs the queue from a **handler dashboard**: printers up/down, what to print next,
+   start/done/failed per plate, status emails.
 
 Everything except the submission runs in the student's browser. There is no server to maintain;
 the only backend is a free Google Apps Script attached to the lab's Google account.
@@ -57,68 +59,116 @@ fonts/                      Abraham (Bezalel's typeface, by Daniel Grumer), web 
 The page works as soon as it's hosted; until step 2 is done, **Submit** shows a message that
 submissions aren't set up yet.
 
-### 2. Deploy the submission backend (Google Apps Script)
+### 2. Deploy the backend (Google Apps Script)
 
-Do this **while signed in to the lab's Google account**. Files and the Sheet are created in that
-account's Drive, and confirmation emails are sent from it.
+Two Google accounts are involved:
 
-1. Go to <https://script.google.com> → **New project**. Name it `BZL Print Lab submissions`.
-2. Replace the contents of `Code.gs` with [`apps-script/Code.gs`](apps-script/Code.gs).
-3. **Project Settings (⚙) → tick "Show 'appsscript.json' manifest file in editor"**, then replace
-   `appsscript.json` with [`apps-script/appsscript.json`](apps-script/appsscript.json).
-4. At the top of `Code.gs`, in `SETTINGS.CENTERS`, set up each modelling center:
-   - `FOLDER_ID` / `SHEET_ID`: the existing Drive folder and Google Sheet to use for that center (the
-     long ID in its URL). Leave them `''` and `setup` creates a folder and Sheet by name
-     (`FOLDER_NAME`, `SHEET_TITLE`). In an existing Sheet, submissions go on a tab named
-     **Submissions**, created if missing; other tabs aren't touched.
-   - `NOTIFY_EMAIL` (optional): emailed on every new submission to that center.
-   - Optional for all: `LAB_NOTIFY_EMAIL` and `REPLY_TO` (where student replies go).
-   The center keys must match `centers` in `js/config.js` (only `main` is active now).
-5. Choose the `setup` function in the toolbar and press **Run**. Approve the permission prompt
-   (Google warns that the app is unverified. Click *Advanced → Go to … (unsafe)*: it's your own script).
-   This finds or creates each center's folder and log Sheet; the execution log prints the links.
-6. **Deploy → New deployment → type: Web app**
-   - *Execute as*: **Me**
-   - *Who has access*: **Anyone**
-7. Copy the **Web app URL** (ends in `/exec`) into `appsScriptUrl` in [`js/config.js`](js/config.js),
-   then commit and push.
+- **Your work Google account** owns everything: the Drive folder, the data, and the script.
+- **The lab Gmail** only *sends* emails (an email "from" a bezalel.ac.il address sent by Google
+  fails the domain's checks and lands in spam). Students' replies therefore go to the lab Gmail,
+  so anyone who handles prints can answer.
 
-To change the script later: edit, then **Deploy → Manage deployments → ✏️ → Version: New version → Deploy**.
-That keeps the same URL. (A *new deployment* gets a new URL, which you'd then have to update in `config.js`.)
+#### a. The backend (work account)
 
-### What the lab gets
+1. Signed in to the **work account**, go to <https://script.google.com> → **New project**. Name it
+   `BZL Print Lab backend`.
+2. **Project Settings (⚙) → tick "Show 'appsscript.json' manifest file in editor"**.
+3. Add the files from [`apps-script/`](apps-script) (the **+** next to *Files*), replacing the
+   contents of the ones that already exist:
+   - `Code.gs` ← [`apps-script/Code.gs`](apps-script/Code.gs)
+   - `Schedule.gs` ← [`apps-script/Schedule.gs`](apps-script/Schedule.gs) (the estimate engine)
+   - `Dashboard.html` ← [`apps-script/Dashboard.html`](apps-script/Dashboard.html) (*+ → HTML*, name it `Dashboard`)
+   - `appsscript.json` ← [`apps-script/appsscript.json`](apps-script/appsscript.json)
+4. At the top of `Code.gs`, set `LAB_EMAIL` to the lab Gmail address. Check the other `SETTINGS`
+   (opening hours, handling time, number of printers, retention periods).
+5. Choose **`setup`** in the toolbar and press **Run**. Approve the permissions (Google warns the
+   app is unverified: *Advanced → Go to … (unsafe)*; it's your own script). The execution log shows
+   the links to the new **BZL Print Lab** folder, the **Data** sheet, the **Outbox** sheet and the
+   **Outbox ID**. Copy the Outbox ID for step b.
+6. **Deploy → New deployment → Web app**, description `Intake`:
+   *Execute as* **Me**, *Who has access* **Anyone**. Copy the URL (ends in `/exec`) into
+   `appsScriptUrl` in [`js/config.js`](js/config.js), then commit and push.
+7. **Deploy → New deployment → Web app** again, description `Dashboard`:
+   *Execute as* **User accessing the web app**, *Who has access* **Anyone with Google account**.
+   This URL is the **handler dashboard**: bookmark it.
+8. **Share the `BZL Print Lab` folder** (in Drive) as **Editor** with each person who handles prints.
+   That is what gives them the dashboard: it runs as them, with their own access. To remove
+   someone, unshare the folder. The first time they open the dashboard Google asks them to approve
+   it, as in step 5.
 
-- **Drive:** in the folder of the center the student chose (by default `STUDENT 3D SUBMISSIONS` for
-  the main center, `STUDENT 3D SUBMISSIONS – ARCHITECTURE` for architecture), e.g.
-  `2026-10-06 14.32 · Student Name · P261006-7K3Q/`, containing
-  - `ORIGINAL – <file>`: each file exactly as the student uploaded it (files whose objects were all
-    removed from the plate are not uploaded),
-  - `PLATES – plates.3mf`: a **Bambu Studio project** with every piece exactly where the student put
-    it, on the same plates, rotated and resized as they chose, with the printer, filament (colour) and
-    printing profile they picked. Open it with **File → Open Project** (if you drag it into Bambu
-    Studio instead, choose *Open as project*, not *Import geometry only*, or the plates are lost).
-  - `<id> – details.txt`: all submission details, including what is on each plate.
+To change the script later: edit, then **Deploy → Manage deployments → ✏️ → Version: New version →
+Deploy**, for *both* deployments. That keeps the URLs.
 
-  Folder names start with the date, so sorting the folder by **Name, Z→A** (or by *Last modified*)
-  lists the newest submissions first. Drive remembers your sort choice.
-- **Sheet** (`STUDENT 3D SUBMISSIONS – Log`, in the same folder): one row per submission, newest at the
-  top. The *Objects* column lists every object with its copies and size; *Pieces* is the total. The **Status** column has a dropdown (New → In review → Queued → Printing → Ready for pickup →
-  Picked up, plus On hold / Rejected / Cancelled), colour-coded. There's also a free **Lab notes**
-  column. A row stuck on *Uploading* means the student's upload didn't finish; you can delete it.
-- **Email:** the student gets a bilingual confirmation with their submission number and estimate.
+#### b. The mailer (lab Gmail)
 
-### Limits of a free Gmail account
+1. In Drive (work account), share the **Outbox** sheet (inside the folder) with the lab Gmail as **Editor**.
+2. Signed in to the **lab Gmail**, go to <https://script.google.com> → **New project**
+   `BZL Print Lab mailer`. Show the manifest as above, then paste
+   [`apps-script/mailer/Mailer.gs`](apps-script/mailer/Mailer.gs) into `Code.gs` and
+   [`apps-script/mailer/appsscript.json`](apps-script/mailer/appsscript.json) into `appsscript.json`.
+3. Paste the Outbox ID into `OUTBOX_ID`, choose **`install`** and press **Run**; approve.
 
-- **Storage:** 15 GB, shared with Gmail. STL files add up; archive or delete old submission
-  folders now and then.
-- **Email:** about 100 emails per day. Past that, submissions still work but the confirmation
-  email is skipped.
-- **Upload size:** 25 MB per file (an Apps Script request limit). Students with bigger files should
-  export a coarser mesh.
-- **Privacy:** the Sheet holds ID numbers, phone numbers and emails. Keep the folder and Sheet
-  private to lab staff and never share them "with anyone with the link".
+It now sends waiting emails every 5 minutes. A failed email is retried (10 min, 20, 40…), and after
+5 tries it's marked failed; the dashboard shows it, with a button to retry. One bad address never
+holds up the others.
+
+### How it works
+
+- **A submission** creates a folder in `BZL Print Lab/Submissions/` named `2026-10-19 14.32 · P261019-7K3QX`
+  (no names in folder names), containing the original files, `PLATES – <id> – plates.3mf` (a
+  **Bambu Studio project** with every piece where the student put it, with the chosen colours and
+  profile: open it with **File → Open Project**) and `details.txt` (the print details, no personal data).
+  It goes **straight into the queue**, and the student gets one confirmation email with the
+  submission number, a tracking link and the estimated ready date.
+- **Students track their submission** on the site (*Track a submission*, or the link in the email):
+  status, plates printed, place in the queue and the current estimate. No routine update emails; the
+  only other emails are the ones a handler chooses to send (ready for pickup, on hold, rejected…).
+- **Estimates**: the plates in queue order go to whichever working printer is free first. Prints are
+  only *started* Sun–Thu 9:00–22:00 (and not on closed dates), but run through nights and weekends.
+  Each plate counts the slicer's time plus 10 min handling. As plates are marked done, the real
+  print times are compared with the slicer's and the estimates correct themselves. The site uses
+  the same engine to show a student, before submitting, when their print would be ready.
+- **The dashboard** shows each printer (printing what, until when, what's next, with *Start* /
+  *Done* / *Failed* buttons; *Mark down* takes it out of the estimates), the queue with estimated
+  start and ready times, deadline-risk flags, and each request's details, files, plates, status
+  changes (with an email preview) and lab notes. You can move a request up the queue, download the
+  plates of several requests as one ZIP, and set closed dates (holidays).
+
+### The data, and privacy
+
+Everything is in the **Data** sheet (also linked from the dashboard). Don't rename tabs or reorder
+columns; add your own columns only to the right of the existing ones, or use another tab.
+
+| Tab | What | Kept |
+|---|---|---|
+| Requests | one row per submission: dates, status, department, course, profile, plates, estimates, ready/closed times… | always (for analysis) |
+| Plates | one row per plate: estimated and actual minutes, printer, attempts, failures | always |
+| History | who did what, when | always |
+| Contacts | name, ID number, email, phone, student notes | wiped 180 days after the request closes |
+| Printers, ClosedDates | the dashboard's settings | |
+
+Students are identified in *Requests* by a **student key** (`S-…`): a keyed hash of their ID number.
+The same student always gets the same key, so you can analyse repeat use, but the key can't be turned
+back into an ID number. The secret it uses is in the script's *Project Settings → Script
+Properties* (`STUDENT_KEY_SECRET`): **don't delete or change it**, or new keys won't match old ones.
+
+Every night the script wipes contact details that are due, deletes model files 365 days after a
+request closes (`FILE_RETENTION_DAYS`; 0 keeps them), removes temporary ZIPs, and closes submissions
+whose upload never finished. Emails in the Outbox lose their address and body once sent.
+
+### Limits of a free Google account
+
+- **Storage:** 15 GB. Old model files are deleted automatically (above).
+- **Email:** about 100 emails a day from the lab Gmail. Past that, emails wait for the next day.
+- **Upload size:** 25 MB per file. Students with bigger files should export a coarser mesh.
 - **Spam protection:** a hidden honeypot field, a minimum time on the page, server-side validation
   of every field, an allowed-file-type check and a per-email rate limit (6/hour).
+
+### Trying changes locally
+
+`npm test` runs the backend against simulated Google services. `node tools/dashboard-preview.mjs`
+serves the dashboard with sample data at <http://localhost:8790>. After editing `js/schedule.js`,
+run `npm run build:gs` to update `apps-script/Schedule.gs`.
 
 ---
 
@@ -126,7 +176,7 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 
 | Setting | Default | |
 |---|---|---|
-| `appsScriptUrl` | `''` | Web app URL from step 2.7 |
+| `appsScriptUrl` | `''` | The *Intake* web app URL (step 2a.6) |
 | `centers` | main | The "Send to" choices, shown only when there are two or more (English/Hebrew names). A center can have its own `appsScriptUrl` |
 | `pricing.perGram` | `0.05` | ₪ per gram of filament |
 | `pricing.perHour` | `5` | ₪ per hour of estimated printing time; warm-up/prepare time is not charged |
@@ -137,8 +187,8 @@ That keeps the same URL. (A *new deployment* gets a new URL, which you'd then ha
 | `maxFileMB` | `25` | |
 | `timeCalibration` | `1.0` | multiplier for the time estimate (see below) |
 
-The lead-time notice ("prints can take up to several weeks") is in `index.html` and the
-confirmation email in `Code.gs`. Change both when you have an average lead time.
+The lead-time notice ("prints can take up to several weeks") is in `index.html`; the estimated
+ready date next to the cost is calculated from the live queue.
 
 ## Calibrating the time estimate
 
