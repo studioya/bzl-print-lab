@@ -3,7 +3,7 @@
 export const CONFIG = {
   // URL of the deployed Google Apps Script web app (see README → "Deploy the
   // submission backend"). Leave empty to run the page without submissions.
-  appsScriptUrl: '',
+  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbyziT1lpeuJEWIKSwWUm2XE16vY3E_0kXNrpSCQmqjaqoU-Q9AmKD37vVpw5PdCsO-Q9g/exec',
 
   // The modelling center(s). With one listed, students don't see a "Send to"
   // choice. A second center would need its own backend (its own copy of
