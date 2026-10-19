@@ -31,7 +31,6 @@
 const SETTINGS = {
   LAB_NAME: 'Bezalel Main Modelling Center',
   LAB_NAME_HE: 'מרכז הדיגום הראשי של בצלאל',
-  LAB_EMAIL: '',                       // the lab Gmail that sends emails (shown in emails)
   SITE_URL: 'https://studioya.github.io/bzl-print-lab/',
   FOLDER_NAME: 'BZL Print Lab',
   TIMEZONE: 'Asia/Jerusalem',
