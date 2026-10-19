@@ -268,3 +268,40 @@ test('mailer: sends pending emails, one bad address never blocks the rest, retri
   m.sendOutbox();
   assert.ok(!b.mails.some((x) => x.to === 'd@example.com'));
 });
+
+test('plate pictures: stored per plate, shown on the dashboard; other files refused', () => {
+  const b = setupBackend();
+  const r1 = b.post({ action: 'begin', details, order: order() });
+  const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString('base64');
+  const up = (name, kind, data = jpg) => b.post({ action: 'file', id: r1.id, token: r1.token, name, kind, data });
+  assert.equal(up('model.stl', 'original', 'eA==').ok, true);
+  assert.equal(up('plates.3mf', 'plates', 'eA==').ok, true);
+  assert.equal(up('plate-1.jpg', 'preview').ok, true);
+  assert.equal(up('plate-2.jpg', 'preview').ok, true);
+  assert.equal(up('evil.html', 'preview').ok, false);
+  assert.equal(up('photo.jpg', 'original').ok, false, 'jpg only as a plate picture');
+  assert.equal(b.post({ action: 'finish', id: r1.id, token: r1.token }).ok, true);
+  const req = rowsOf(b, 'Requests')[0];
+  assert.ok(!/PREVIEW/.test(req.Files), 'pictures not listed as files');
+  const d = b.api('load').data;
+  assert.deepEqual(d.requests[0].plates.map((p) => p.hasPreview), [true, true]);
+  const pv = b.api('previews', { id: r1.id }).data;
+  assert.deepEqual(pv.map((p) => p.n), [1, 2]);
+  assert.equal(pv[0].src, 'data:image/jpeg;base64,' + jpg);
+  assert.ok(b.drive.files.some((f) => f.name === 'PREVIEW – plate 2.jpg'));
+});
+
+test('estimates below the minimums are withheld, with the reason', () => {
+  const b = setupBackend();
+  for (const id of ['P2', 'P3', 'P4', 'P5', 'P6']) b.api('setPrinter', { id, up: false });
+  const r = submit(b);
+  assert.equal(r.estimate, null);
+  assert.equal(r.estimateIssue, 'printers');
+  const s = b.get({ action: 'status', id: r.id });
+  assert.equal(s.estimate, null);
+  assert.equal(s.estimateIssue, 'printers');
+  assert.match(b.outbox().rows[1][4], /can&#39;t be estimated|can't be estimated/);
+  assert.deepEqual(b.get({ action: 'queue' }).rules, { minPrintersUp: 2, maxWorkingDays: 15 });
+  // Free for now: the email says so.
+  assert.match(b.outbox().rows[1][4], /free for now/);
+});

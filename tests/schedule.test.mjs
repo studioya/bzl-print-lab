@@ -93,3 +93,12 @@ test('apps-script/Schedule.gs is up to date with js/schedule.js (npm run build:g
   const { scheduleGs } = await import('../tools/build-apps-script.mjs');
   assert.equal(readFileSync(new URL('../apps-script/Schedule.gs', import.meta.url), 'utf8'), scheduleGs());
 });
+
+test('checkEstimate: needs enough printers and a date not too far away', async () => {
+  const { checkEstimate } = await import('../js/schedule.js');
+  const rules = { minPrintersUp: 2, maxWorkingDays: 15 };
+  assert.deepEqual(checkEstimate({ days: 3 }, 6, rules), { ok: true });
+  assert.deepEqual(checkEstimate({ days: 3 }, 1, rules), { ok: false, reason: 'printers' });
+  assert.deepEqual(checkEstimate({ days: 16 }, 6, rules), { ok: false, reason: 'far' });
+  assert.deepEqual(checkEstimate(null, 6, rules), { ok: false, reason: 'none' });
+});

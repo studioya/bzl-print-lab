@@ -10,11 +10,11 @@ import { loadModel, extensionOf, ACCEPTED_EXTENSIONS } from './loaders.js';
 import { IDENTITY3, matMul, axisRotation, alignRotation, orientMesh, autoOrient, boundingSize, splitComponents } from './mesh.js';
 import { arrangePlates, fitsPlate, footprint, hullsOverlap, clampToPlate, onPlate, findFreeSpot, PLATE } from './arrange.js';
 import { buildProject3MF } from './export3mf.js';
-import { Viewer } from './viewer.js';
+import { Viewer, renderPlateImages } from './viewer.js';
 import { submitPrint } from './submit.js';
 import { initTooltips, hideTooltip } from './tooltip.js';
 import { plateCost, submissionPrice } from './pricing.js';
-import { backendUrl, fetchQueue, fetchStatus, estimateFor, formatEstimate, pastDeadline } from './queue.js';
+import { backendUrl, fetchQueue, fetchStatus, readyEstimate, noEstimateText, rulesOf, formatEstimate, pastDeadline } from './queue.js';
 
 const $ = (id) => document.getElementById(id);
 const he = (text) => `<span class="he" lang="he" dir="rtl">${text}</span>`;
@@ -1074,6 +1074,7 @@ function renderEstimate() {
   $('estTime').textContent = fmtDuration(t.seconds);
   const pr = t.price, rate = CONFIG.pricing;
   $('estCost').textContent = money(pr.total);
+  $('estFree').hidden = !!CONFIG.pricing.charging;
   // How the price is made up.
   const rateOf = (v) => `${CONFIG.currency}${+v.toFixed(2)}`; // ₪0.05, ₪5
   $('estRate').innerHTML = `<div class="price-line"><span>Material ${he('חומר')}</span><b>${money(pr.material)}</b>
@@ -1111,25 +1112,46 @@ function renderEstimate() {
 // ---------------------------------------------------------------- delivery estimate + tracking
 
 let readyToken = 0;
-/** "Estimated ready" from the lab's live queue, with these plates added at the end. */
+/**
+ * "Estimated ready" from the lab's live queue, with these plates added at the
+ * end. Shown only when it's reliable: every plate sliced, the queue reachable,
+ * enough printers working and the date not too far off; otherwise we say so.
+ */
 function updateReadyEstimate() {
   const box = $('estReadyBox');
-  const plates = usedPlates().filter((x) => x.result).map((x) => ({ minutes: x.result.minutes }));
-  if (!backendUrl() || !plates.length) { box.hidden = true; return; }
+  const used = usedPlates();
   const token = ++readyToken;
+  if (!used.some((x) => x.result)) { box.hidden = true; return; }
+  box.hidden = false;
+  const show = (main, note, unavailable) => {
+    box.classList.toggle('unavailable', unavailable);
+    $('estReady').innerHTML = `${escapeHtml(main.en)}${he(escapeHtml(main.he))}`;
+    $('estReadyNote').innerHTML = `${escapeHtml(note.en)} ${he(escapeHtml(note.he))}`;
+  };
+  $('estLate').hidden = true;
+  if (!used.every((x) => x.result)) {
+    show({ en: 'Slice all plates to see a ready date', he: 'בצעו פריסה לכל המשטחים כדי לראות מועד' }, { en: '', he: '' }, true);
+    return;
+  }
+  const offline = () => { const t = noEstimateText('offline'); show(t, { en: t.noteEn, he: t.noteHe }, true); };
+  if (!backendUrl()) { offline(); return; }
+  show({ en: 'Checking the queue…', he: 'בודק את התור…' }, { en: '', he: '' }, false);
   fetchQueue().then((snap) => {
     if (token !== readyToken) return;
-    const est = estimateFor(snap, plates);
-    const f = formatEstimate(est);
-    box.hidden = false;
-    $('estReady').innerHTML = `${escapeHtml(f.en)}${he(escapeHtml(f.he))}`;
-    const late = pastDeadline(est, $('fDeadline').value);
+    const r = readyEstimate(snap, used.map((x) => ({ minutes: x.result.minutes })));
+    if (r.ok) {
+      show(formatEstimate(r.est), { en: "Based on the lab's current queue.", he: 'לפי התור הנוכחי במעבדה.' }, false);
+    } else {
+      const t = noEstimateText(r.reason, rulesOf(snap));
+      show(t, { en: t.noteEn, he: t.noteHe }, true);
+    }
+    const late = r.est && pastDeadline(r.est, $('fDeadline').value);
     $('estLate').hidden = !late;
     if (late) {
       $('estLate').innerHTML = `This is after your “needed by” date. Submit as early as you can, or talk to the lab.
         ${he('זה אחרי תאריך היעד שלכם. כדאי להגיש מוקדם ככל האפשר או לפנות למעבדה.')}`;
     }
-  }).catch(() => { if (token === readyToken) box.hidden = true; });
+  }).catch(() => { if (token === readyToken) offline(); });
 }
 
 const STATUS_TEXT = {
@@ -1162,7 +1184,7 @@ function initTracking() {
       if (!r.ok) { out.innerHTML = `<p class="error">${escapeHtml(r.error)}${he('ההגשה לא נמצאה. בדקו את המספר במייל האישור.')}</p>`; return; }
       const [en, h] = STATUS_TEXT[r.status] || [r.status, r.statusHe];
       const p = r.plates;
-      const est = r.estimate ? formatEstimate(r.estimate) : null;
+      const est = r.estimate ? formatEstimate(r.estimate) : r.estimateIssue ? noEstimateText(r.estimateIssue, r.rules || rulesOf(null)) : null;
       out.innerHTML = `<div class="track-status s-${escapeHtml(r.status.replace(/ /g, '-'))}">${escapeHtml(en)}${he(escapeHtml(h))}</div>
         <dl class="track-facts">
           <dt>Submission ${he('הגשה')}</dt><dd>${escapeHtml(r.id)}</dd>
@@ -1170,7 +1192,8 @@ function initTracking() {
           ${r.ahead > 0 ? `<dt>Ahead in the queue ${he('לפניכם בתור')}</dt><dd>${r.ahead}</dd>` : ''}
           ${est ? `<dt>Estimated ready ${he('מוכן בערך')}</dt><dd><b>${escapeHtml(est.en)}</b>${he(escapeHtml(est.he))}</dd>` : ''}
         </dl>
-        ${est ? `<p class="muted">Estimates change as the queue moves. ${he('ההערכה משתנה עם התקדמות התור.')}</p>` : ''}`;
+        ${r.estimate ? `<p class="muted">Estimates change as the queue moves. ${he('ההערכה משתנה עם התקדמות התור.')}</p>`
+    : est ? `<p class="muted">${escapeHtml(est.noteEn)} ${he(escapeHtml(est.noteHe))}</p>` : ''}`;
     } catch {
       out.innerHTML = `<p class="error">Could not reach the lab's server. Try again later. ${he('אין חיבור לשרת המעבדה. נסו שוב מאוחר יותר.')}</p>`;
     }
@@ -1431,7 +1454,18 @@ async function onSubmit(e) {
       ...state.files.map((f) => ({ name: f.file.name, blob: f.file, kind: 'original' })),
       { name: 'plates.3mf', blob: plate3mf, kind: 'plates' },
     ];
-    const { id, trackUrl, estimate } = await submitPrint({
+    // A picture of each plate for the lab's dashboard. Optional: if the
+    // browser can't render them, the submission goes without.
+    try {
+      const images = await renderPlateImages(state.plates.map((pl, i) => ({
+        color: plateColor(i),
+        pieces: pl.map((p) => ({ positions: objectByKey(p.key).oriented.positions, x: p.x, y: p.y })),
+      })));
+      images.forEach((blob, i) => { if (blob) files.push({ name: `plate-${i + 1}.jpg`, blob, kind: 'preview' }); });
+    } catch (err) {
+      console.warn('Plate pictures skipped:', err);
+    }
+    const { id, trackUrl, estimate, estimateIssue } = await submitPrint({
       details, order, files,
       onStatus: (stage, i, n) => {
         setSubmitStatus(stage === 'begin' ? 'Creating submission… · יוצר הגשה…'
@@ -1443,9 +1477,12 @@ async function onSubmit(e) {
     $('doneId').textContent = id;
     $('doneIdHe').textContent = id;
     $('doneTrack').href = trackUrl || `${location.pathname}?track=${encodeURIComponent(id)}`;
-    const est = estimate && formatEstimate(estimate);
+    const est = estimate ? formatEstimate(estimate) : estimateIssue ? noEstimateText(estimateIssue) : null;
     $('doneEst').hidden = !est;
-    if (est) $('doneEst').innerHTML = `Estimated ready: <b>${escapeHtml(est.en)}</b>${he(`מוכן בערך: <b>${escapeHtml(est.he)}</b>`)}`;
+    if (est) {
+      $('doneEst').innerHTML = `Estimated ready: <b>${escapeHtml(est.en)}</b>${est.noteEn ? `. ${escapeHtml(est.noteEn)}` : ''}` +
+        he(`מוכן בערך: <b>${escapeHtml(est.he)}</b>${est.noteHe ? `. ${escapeHtml(est.noteHe)}` : ''}`);
+    }
     $('doneDialog').showModal();
   } catch (err) {
     setSubmitStatus(escapeHtml(err.message), true);

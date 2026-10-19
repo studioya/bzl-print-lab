@@ -94,6 +94,14 @@ h2 { font-size: 15px; margin: 18px 0 8px; }
 .kv dt { color: var(--ink-3); }
 .kv dd { margin: 0; word-break: break-word; white-space: pre-line; }
 .plate { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.plate.has-pic { grid-template-columns: 22px 120px 1fr auto; }
+.thumb { width: 120px; height: 90px; border-radius: 6px; background: #e4e8ea; border: 1px solid var(--line); cursor: zoom-in; object-fit: cover; display: block; }
+.thumb.loading { animation: pulse 1.2s ease-in-out infinite; cursor: default; }
+@keyframes pulse { 50% { opacity: .5; } }
+#picDialog { max-width: min(1240px, 96vw); width: auto; padding: 12px; }
+#picDialog img { display: block; max-width: 100%; max-height: 80vh; border-radius: 8px; }
+#picDialog .pic-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-weight: 600; }
+#picDialog .pic-head .x { margin-left: auto; font-size: 22px; border: 0; background: none; cursor: pointer; }
 .plate:last-child { border-bottom: 0; }
 .plate .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
 .plate select, .plate input, section select, section textarea, section input[type=text] { border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; background: #fff; font-size: 13px; }
@@ -155,6 +163,12 @@ dialog h3 { margin-top: 0; }
   </div>
 </dialog>
 
+<dialog id="picDialog">
+  <div class="pic-head"><span id="picTitle"></span><button class="btn small" id="picPrev">‹</button><button class="btn small" id="picNext">›</button><button class="x" id="picClose" aria-label="Close">×</button></div>
+  <img id="picImg" alt="">
+  <p class="muted" style="margin:6px 0 0">As the student laid it out. <span class="he">כפי שהסטודנט/ית סידר/ה.</span></p>
+</dialog>
+
 <dialog id="askDialog">
   <h3 id="askTitle"></h3>
   <div id="askBody"></div>
@@ -171,7 +185,7 @@ dialog h3 { margin-top: 0; }
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const bi = (en, he) => esc(en) + ' <span class="he">' + esc(he) + '</span>';
-  const S = { data: null, tab: 'queue', search: '', open: null, selected: new Set(), loading: false };
+  const S = { data: null, tab: 'queue', search: '', open: null, selected: new Set(), loading: false, previews: {} };
   const STATE_HE = { waiting: 'ממתינה', printing: 'בהדפסה', done: 'הסתיימה', cancelled: 'בוטלה' };
 
   // ---------- server calls
@@ -436,7 +450,8 @@ dialog h3 { margin-top: 0; }
         }
       }
       if (p.attempts > 1 || p.note) info += '<div class="muted">' + (p.attempts > 1 ? 'Attempts: ' + p.attempts + '. ' : '') + esc(p.note || '') + '</div>';
-      return '<div class="plate"><span class="dot ' + esc(p.color) + ' ' + esc(p.state) + '"></span>' +
+      return '<div class="plate' + (p.hasPreview ? ' has-pic' : '') + '"><span class="dot ' + esc(p.color) + ' ' + esc(p.state) + '"></span>' +
+        (p.hasPreview ? '<img class="thumb loading" data-pic="' + p.n + '" alt="Plate ' + p.n + '">' : '') +
         '<div><b>' + bi('Plate ' + p.n, 'פלטה ' + p.n) + '</b>' + (p.name ? ' “' + esc(p.name) + '”' : '') + ' · ' + esc(p.color) + ' · ' + dur(p.estMinutes) + ', ' + p.grams + ' g<div class="muted">' + info + '</div></div>' +
         '<div class="acts">' + acts + '</div></div>';
     }).join('');
@@ -475,6 +490,7 @@ dialog h3 { margin-top: 0; }
         '<div class="row-flex"><button class="btn" id="saveNotes">' + bi('Save notes', 'שמירה') + '</button></div></section>';
 
     $('dClose').onclick = closeDrawer;
+    showPreviews(r);
     const dr = $('drawer');
     dr.querySelectorAll('[data-done]').forEach((b) => { b.onclick = () => finishPlate(b.dataset.done); });
     dr.querySelectorAll('[data-fail]').forEach((b) => { b.onclick = () => failPlate(b.dataset.fail); });
@@ -507,6 +523,46 @@ dialog h3 { margin-top: 0; }
     };
     $('saveNotes').onclick = () => act('saveNotes', { id: r.id, notes: $('labNotes').value }, 'Saved · נשמר');
   }
+  // ---------- plate pictures (loaded once per request)
+  async function showPreviews(r) {
+    if (!r.plates.some((p) => p.hasPreview)) return;
+    if (!S.previews[r.id]) {
+      S.previews[r.id] = call('previews', { id: r.id }).catch(() => []);
+    }
+    const list = await S.previews[r.id];
+    if (S.open !== r.id) return;
+    const byN = {};
+    list.forEach((x) => { byN[x.n] = x.src; });
+    $('drawer').querySelectorAll('img[data-pic]').forEach((img) => {
+      const n = +img.dataset.pic;
+      img.classList.remove('loading');
+      if (!byN[n]) { img.replaceWith(Object.assign(document.createElement('span'), { className: 'muted', textContent: 'no picture' })); return; }
+      img.src = byN[n];
+      img.onclick = () => openPic(r, list.filter((x) => x.src), n);
+    });
+  }
+  let pics = null;
+  function openPic(r, list, n) {
+    pics = { r, list, i: Math.max(0, list.findIndex((x) => x.n === n)) };
+    showPic();
+    $('picDialog').showModal();
+  }
+  function showPic() {
+    const x = pics.list[pics.i];
+    const p = pics.r.plates.find((q) => q.n === x.n) || {};
+    $('picImg').src = x.src;
+    $('picTitle').innerHTML = esc(pics.r.id) + ' · ' + bi('Plate ' + x.n, 'פלטה ' + x.n) + (p.name ? ' “' + esc(p.name) + '”' : '') + ' · ' + esc(p.color || '');
+    $('picPrev').disabled = pics.i === 0;
+    $('picNext').disabled = pics.i === pics.list.length - 1;
+  }
+  $('picPrev').onclick = () => { if (pics.i > 0) { pics.i--; showPic(); } };
+  $('picNext').onclick = () => { if (pics.i < pics.list.length - 1) { pics.i++; showPic(); } };
+  $('picClose').onclick = () => $('picDialog').close();
+  $('picDialog').addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') $('picPrev').click();
+    if (e.key === 'ArrowRight') $('picNext').click();
+  });
+
   const OPENISH = (r) => ['Queued', 'Printing', 'On hold'].includes(r.status);
   function closeDrawer() { S.open = null; $('drawerWrap').hidden = true; renderList(); }
   $('shade').onclick = closeDrawer;

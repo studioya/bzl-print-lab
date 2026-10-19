@@ -32,7 +32,7 @@ function makeServices({ user = 'owner@example.com', effective = 'owner@example.c
       id: 'fil' + nextId++, name, bytes, folder, trashed: false, created: new Date(),
       getName() { return this.name; }, getUrl() { return 'https://drive.google.com/file/d/' + this.id; }, getId() { return this.id; },
       moveTo(f) { this.folder = f; }, setTrashed(t) { this.trashed = t; }, getDateCreated() { return this.created; },
-      getBlob() { const f = this; return { name: f.name, bytes: f.bytes, setName(n) { this.name = n; return this; }, getName() { return this.name; } }; },
+      getBlob() { const f = this; return { name: f.name, bytes: f.bytes, setName(n) { this.name = n; return this; }, getName() { return this.name; }, getBytes() { return [...f.bytes]; } }; },
     };
     drive.files.push(file);
     return file;
@@ -44,7 +44,7 @@ function makeServices({ user = 'owner@example.com', effective = 'owner@example.c
       createFolder(n) { return makeFolder(n, this); },
       getFoldersByName(n) { return iter(drive.folders.filter((x) => x.parent === this && x.name === n && !x.trashed)); },
       getFiles() { return iter(drive.files.filter((x) => x.folder === this && !x.trashed)); },
-      createFile(a, b) { return typeof a === 'object' ? makeFile(a.name, a.bytes, this) : makeFile(a, Buffer.from(String(b)), this); },
+      createFile(a, b) { return typeof a === 'object' ? makeFile(a.name, Buffer.from(a.bytes), this) : makeFile(a, Buffer.from(String(b)), this); },
       setTrashed(t) { this.trashed = t; },
     };
     drive.folders.push(f);
@@ -138,6 +138,7 @@ function makeServices({ user = 'owner@example.com', effective = 'owner@example.c
       formatDate,
       getUuid: () => 'uuid-' + nextId++,
       base64Decode: (s) => [...Buffer.from(s, 'base64')],
+      base64Encode: (b) => Buffer.from(b).toString('base64'),
       base64EncodeWebSafe: (s) => Buffer.from(s).toString('base64url'),
       newBlob: (bytes, type, name) => ({ bytes, type, name }),
       computeHmacSha256Signature: (v, k) => [...createHmac('sha256', k).update(v).digest()].map((b) => (b > 127 ? b - 256 : b)),

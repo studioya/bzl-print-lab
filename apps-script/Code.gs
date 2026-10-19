@@ -38,6 +38,14 @@ const SETTINGS = {
   // When prints can be started. Prints run on through nights and weekends.
   HOURS: { openHour: 9, closeHour: 22, closedWeekdays: [5, 6] }, // 5 = Friday, 6 = Saturday
   HANDLING_MINUTES: 10,                // per plate: prep, removal, checks
+  // Minimums for giving students a ready date. Below them we say we can't
+  // estimate rather than give a date that's likely wrong.
+  ESTIMATE: {
+    MIN_PRINTERS_UP: 2,                // fewer working printers than this → no estimate
+    MAX_WORKING_DAYS: 15,              // further away than this (~3 weeks) → "more than 3 weeks"
+  },
+  // Students aren't charged yet: the cost is shown as what it will cost once payment is required.
+  CHARGING: false,
   PRINTERS: 6,
   CONTACT_RETENTION_DAYS: 180,         // personal details are wiped this long after a request closes
   FILE_RETENTION_DAYS: 365,            // model files are deleted this long after closing (0 = keep)
@@ -88,7 +96,7 @@ const TABS = {
     ['key', 'Plate', 120], ['id', 'Submission', 110], ['n', 'No.', 40], ['name', 'Name', 120], ['color', 'Color', 70],
     ['estMinutes', 'Est. minutes', 80], ['grams', 'Filament g', 75], ['state', 'State', 80], ['printer', 'Printer', 60],
     ['started', 'Started', 130], ['finished', 'Finished', 130], ['actualMinutes', 'Actual minutes', 90],
-    ['attempts', 'Attempts', 65], ['note', 'Note', 220],
+    ['attempts', 'Attempts', 65], ['note', 'Note', 220], ['preview', 'Preview file id', 0],
   ],
   Printers: [['id', 'Printer', 60], ['name', 'Name', 120], ['up', 'Working', 70], ['note', 'Note', 260], ['since', 'Since', 130], ['plate', 'Printing plate', 120]],
   History: [['at', 'When', 130], ['who', 'Who', 180], ['id', 'Submission', 110], ['action', 'Action', 140], ['details', 'Details', 400]],
@@ -344,6 +352,10 @@ function readyOf_(st, sim, input, id) {
   return cal.nextStaffed(end);
 }
 
+function estimateRules_() {
+  return { minPrintersUp: SETTINGS.ESTIMATE.MIN_PRINTERS_UP, maxWorkingDays: SETTINGS.ESTIMATE.MAX_WORKING_DAYS };
+}
+
 /** The public queue (no names, no IDs): what the site needs to estimate a new submission. */
 function queueSnapshot_() {
   const cache = CacheService.getScriptCache();
@@ -356,6 +368,7 @@ function queueSnapshot_() {
     handlingMinutes: input.handlingMinutes, factor: input.factor,
     printers: input.printers.map(function (p, i) { return { id: 'P' + (i + 1), up: p.up, busyUntil: p.busyUntil }; }),
     queue: input.queue.map(function (q) { return { plates: q.plates.map(function (p) { return { minutes: p.minutes }; }) }; }),
+    rules: estimateRules_(),
   };
   cache.put('snapshot', JSON.stringify(snap), 120);
   return snap;
@@ -383,7 +396,10 @@ function status_(id) {
     const sim = simulateQueue(input);
     const ready = readyOf_(st, sim, input, id);
     out.ahead = input.queue.map(function (q) { return q.id; }).indexOf(id);
-    out.estimate = estimateRange(ready, input);
+    const est = estimateRange(ready, input);
+    const check = checkEstimate(est, sim.printersUp, estimateRules_());
+    out.estimate = check.ok ? est : null;
+    if (!check.ok) { out.estimateIssue = check.reason; out.rules = estimateRules_(); }
     out.printersUp = sim.printersUp;
   }
   return out;
@@ -480,17 +496,23 @@ function addFile_(req) {
   const sub = session_(req);
   const name = String(req.name || '').slice(0, 150);
   const ext = (name.match(/\.([a-z0-9]+)$/i) || [])[1];
-  if (!ext || SETTINGS.ALLOWED_EXTENSIONS.indexOf(ext.toLowerCase()) < 0) throw userError_('File type not allowed.');
+  // A picture of one plate, rendered by the page: "plate-3.jpg".
+  const isPreview = req.kind === 'preview';
+  const plateNo = isPreview ? +((name.match(/^plate-(\d+)\.jpg$/) || [])[1] || 0) : 0;
+  if (isPreview && !(plateNo >= 1 && plateNo <= SETTINGS.MAX_PLATES)) throw userError_('File type not allowed.');
+  if (!isPreview && (!ext || SETTINGS.ALLOWED_EXTENSIONS.indexOf(ext.toLowerCase()) < 0)) throw userError_('File type not allowed.');
   const data = String(req.data || '');
-  if (data.length > SETTINGS.MAX_FILE_MB * 1024 * 1024 * 1.4) throw userError_('File is too large.');
-  if (sub.files.length >= SETTINGS.MAX_MODEL_FILES + 1) throw userError_('Too many files.');
+  const maxMB = isPreview ? 2 : SETTINGS.MAX_FILE_MB;
+  if (data.length > maxMB * 1024 * 1024 * 1.4) throw userError_('File is too large.');
+  const count = function (preview) { return sub.files.filter(function (f) { return !!f.preview === preview; }).length; };
+  if (isPreview ? count(true) >= SETTINGS.MAX_PLATES : count(false) >= SETTINGS.MAX_MODEL_FILES + 1) throw userError_('Too many files.');
   const bytes = Utilities.base64Decode(data);
-  if (bytes.length > SETTINGS.MAX_FILE_MB * 1024 * 1024) throw userError_('File is too large.');
+  if (bytes.length > maxMB * 1024 * 1024) throw userError_('File is too large.');
   const isPlates = req.kind === 'plates';
-  const prefix = isPlates ? 'PLATES – ' + req.id + ' – ' : 'ORIGINAL – ';
+  const fileName = isPreview ? 'PREVIEW – plate ' + plateNo + '.jpg' : (isPlates ? 'PLATES – ' + req.id + ' – ' : 'ORIGINAL – ') + safeName_(name);
   const file = DriveApp.getFolderById(sub.folderId)
-    .createFile(Utilities.newBlob(bytes, 'application/octet-stream', prefix + safeName_(name)));
-  sub.files.push({ name: file.getName(), id: file.getId(), plates: isPlates });
+    .createFile(Utilities.newBlob(bytes, isPreview ? 'image/jpeg' : 'application/octet-stream', fileName));
+  sub.files.push({ name: file.getName(), id: file.getId(), plates: isPlates, preview: isPreview ? plateNo : 0 });
   CacheService.getScriptCache().put('sub_' + req.id, JSON.stringify(sub), 6 * 60 * 60);
   return { ok: true };
 }
@@ -506,7 +528,12 @@ function finish_(req) {
     const now = new Date();
     r.status = 'Queued';
     r.statusChanged = now;
-    r.files = sub.files.map(function (f) { return f.name; }).join('\n');
+    r.files = sub.files.filter(function (f) { return !f.preview; }).map(function (f) { return f.name; }).join('\n');
+    sub.files.forEach(function (f) {
+      if (!f.preview) return;
+      const p = find_(st.plates, 'key', r.id + '-' + f.preview);
+      if (p) { p.preview = f.id; write_('Plates', p); }
+    });
     const plates = sub.files.filter(function (f) { return f.plates; })[0];
     r.platesFileId = plates ? plates.id : '';
     // The estimate the student was given, kept to measure how good estimates are.
@@ -516,11 +543,14 @@ function finish_(req) {
     write_('Requests', r);
     history_('student', r.id, 'Submitted', r.plates + ' plate(s), ' + r.estMinutes + ' min');
     const contact = find_(read_('Contacts'), 'id', r.id);
-    queueEmail_('confirm:' + r.id, contact, r, 'confirm', { estimate: estimateRange(ready, input) });
-    return { estimate: estimateRange(ready, input) };
+    const est = estimateRange(ready, input);
+    const check = checkEstimate(est, input.printers.filter(function (p) { return p.up; }).length, estimateRules_());
+    const shown = check.ok ? est : null;
+    queueEmail_('confirm:' + r.id, contact, r, 'confirm', { estimate: shown, estimateIssue: check.reason });
+    return { estimate: shown, estimateIssue: check.reason };
   });
   CacheService.getScriptCache().remove('sub_' + req.id);
-  return { ok: true, id: req.id, trackUrl: trackUrl_(req.id), estimate: result.estimate || null };
+  return { ok: true, id: req.id, trackUrl: trackUrl_(req.id), estimate: result.estimate || null, estimateIssue: result.estimateIssue || null };
 }
 
 function session_(req) {
@@ -691,8 +721,12 @@ function esc_(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
 }
 
-function fmtEstimate_(est) {
-  if (!est) return { en: 'not available right now', he: 'לא זמין כרגע' };
+function fmtEstimate_(est, issue) {
+  if (!est && issue === 'far') {
+    const w = Math.round(SETTINGS.ESTIMATE.MAX_WORKING_DAYS / 5);
+    return { en: 'more than ' + w + ' weeks (the queue is long)', he: 'יותר מ־' + w + ' שבועות (התור ארוך)' };
+  }
+  if (!est) return { en: 'can\'t be estimated right now', he: 'לא ניתן להעריך כרגע' };
   const day = Utilities.formatDate(new Date(est.ready), SETTINGS.TIMEZONE, 'dd/MM/yyyy');
   const range = est.days === 0 ? '' : ' (' + est.days + '–' + est.daysMax + ' working days)';
   const rangeHe = est.days === 0 ? '' : ' (' + est.days + '–' + est.daysMax + ' ימי עבודה)';
@@ -747,14 +781,15 @@ function buildEmail_(kind, r, contact, opts) {
   const track = trackUrl_(r.id);
   let table = '';
   if (kind === 'confirm') {
-    const est = fmtEstimate_(opts.estimate);
+    const est = fmtEstimate_(opts.estimate, opts.estimateIssue);
     const rows = [
       ['Submission number', 'מספר הגשה', r.id],
       ['Profile', 'פרופיל', r.profile],
       ['Plates', 'פלטות', r.plates + ' (' + r.colors + ')'],
       ['Needed by', 'תאריך יעד', r.deadline],
       ['Estimated print time', 'זמן הדפסה משוער', r.estMinutes + ' min'],
-      ['Estimated cost', 'עלות משוערת', '₪' + r.estCost],
+      SETTINGS.CHARGING ? ['Estimated cost', 'עלות משוערת', '₪' + r.estCost]
+        : ['Future cost', 'עלות עתידית', '₪' + r.estCost + ' — free for now; this is what it will cost once payment is required · ללא תשלום כרגע; זו תהיה העלות כשהתשלום יהיה חובה'],
       ['Estimated ready', 'מוכן משוער', est.en + ' · ' + est.he],
     ];
     table = '<table style="border-collapse:collapse;margin:12px 0">' + rows.map(function (x) {
@@ -1005,6 +1040,17 @@ const API = {
     return { url: file.getUrl(), name: name, count: blobs.length };
   },
 
+  /** The plate pictures of one request, as data URLs (Drive images can't be shown directly here). */
+  previews: function (a) {
+    return read_('Plates').filter(function (p) { return p.id === a.id && p.preview; }).map(function (p) {
+      try {
+        return { n: +p.n, src: 'data:image/jpeg;base64,' + Utilities.base64Encode(DriveApp.getFileById(p.preview).getBlob().getBytes()) };
+      } catch (e) {
+        return { n: +p.n, src: '' }; // deleted with the files
+      }
+    });
+  },
+
   retryEmails: function (a, who) {
     return withLock_(function () {
       const sh = outbox_().getSheets()[0];
@@ -1092,7 +1138,7 @@ function dashboardData_(who) {
     if (!shownIds[p.id]) return;
     const pl = { key: p.key, n: +p.n, name: p.name, color: p.color, estMinutes: +p.estMinutes, grams: +p.grams, state: p.state,
       printer: p.printer, started: ms_(p.started), finished: ms_(p.finished), actualMinutes: +p.actualMinutes || null,
-      attempts: +p.attempts || 0, note: p.note, plan: planned[p.key] || null };
+      attempts: +p.attempts || 0, note: p.note, plan: planned[p.key] || null, hasPreview: !!p.preview };
     if (p.state === 'printing') pl.expectedEnd = ms_(p.started) + +p.estMinutes * st.factor * 60000;
     (platesOf[p.id] = platesOf[p.id] || []).push(pl);
   });

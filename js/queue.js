@@ -5,7 +5,7 @@
 // backend uses (js/schedule.js).
 
 import { CONFIG } from './config.js';
-import { simulateQueue, estimateRange } from './schedule.js';
+import { simulateQueue, estimateRange, checkEstimate } from './schedule.js';
 
 const TZ = 'Asia/Jerusalem';
 let cached = null; // { at, promise }
@@ -18,7 +18,14 @@ export function backendUrl() {
 async function getJson(params) {
   const url = backendUrl();
   if (!url) throw new Error('not configured');
-  const res = await fetch(url + (url.includes('?') ? '&' : '?') + new URLSearchParams(params), { redirect: 'follow' });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  let res;
+  try {
+    res = await fetch(url + (url.includes('?') ? '&' : '?') + new URLSearchParams(params), { redirect: 'follow', signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error('HTTP ' + res.status);
   return res.json();
 }
@@ -38,10 +45,36 @@ export function fetchStatus(id) {
 }
 
 /**
- * When would these plates be ready if submitted now?
+ * A ready date for these plates if submitted now, if it's good enough to show.
  * @param plates [{ minutes }]
- * @returns { ready, days, daysMax } or null (no printer working)
+ * @returns { est: { ready, days, daysMax } | null, ok, reason }
  */
+export function readyEstimate(snapshot, plates, now = Date.now()) {
+  const est = estimateFor(snapshot, plates, now);
+  const up = snapshot.printers.filter((p) => p.up).length;
+  return { est, ...checkEstimate(est, up, rulesOf(snapshot)) };
+}
+
+export function rulesOf(snapshot) {
+  return snapshot?.rules || CONFIG.estimate || { minPrintersUp: 1, maxWorkingDays: 0 };
+}
+
+/** What to say when there's no date to give. reason: 'printers' | 'far' | 'none' | 'offline' */
+export function noEstimateText(reason, rules = rulesOf(null)) {
+  const weeks = Math.max(1, Math.round((rules.maxWorkingDays || 15) / 5));
+  const after = { en: "We'll email you when it's ready.", he: 'נשלח לכם מייל כשההדפסה תהיה מוכנה.' };
+  if (reason === 'far') {
+    return { en: `More than ${weeks} weeks`, he: `יותר מ־${weeks} שבועות`,
+      noteEn: `The queue is long right now. ${after.en}`, noteHe: `התור ארוך כרגע. ${after.he}` };
+  }
+  const why = reason === 'printers'
+    ? { en: 'Too few printers are working right now.', he: 'פחות מדי מדפסות פועלות כרגע.' }
+    : { en: "The lab's queue can't be reached right now.", he: 'אין גישה כרגע לתור של המעבדה.' };
+  return { en: "We can't estimate a ready date right now", he: 'לא ניתן להעריך כרגע מתי ההדפסה תהיה מוכנה',
+    noteEn: `${why.en} ${after.en}`, noteHe: `${why.he} ${after.he}` };
+}
+
+/** When would these plates be ready if submitted now? (No minimums applied.) */
 export function estimateFor(snapshot, plates, now = Date.now()) {
   const input = {
     now, timeZone: snapshot.timeZone || TZ, hours: snapshot.hours, handlingMinutes: snapshot.handlingMinutes,

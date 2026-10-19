@@ -80,39 +80,7 @@ export class Viewer {
   }
 
   buildPlate() {
-    const g = new THREE.Group();
-    const W = PLATE.width, D = PLATE.depth;
-    const base = new THREE.Mesh(
-      new THREE.BoxGeometry(W + 16, D + 16, 4),
-      new THREE.MeshStandardMaterial({ color: 0x4b4f54, roughness: 0.9 }),
-    );
-    base.position.set(W / 2, D / 2, -2.05);
-    g.add(base);
-    const surface = new THREE.Mesh(
-      new THREE.PlaneGeometry(W, D),
-      new THREE.MeshStandardMaterial({ color: 0x33373b, roughness: 0.75 }),
-    );
-    surface.position.set(W / 2, D / 2, -0.02);
-    g.add(surface);
-    const pts = [];
-    for (let x = 0; x <= W + 1e-6; x += 10) pts.push(x, 0, 0, x, D, 0);
-    for (let y = 0; y <= D + 1e-6; y += 10) pts.push(0, y, 0, W, y, 0);
-    const grid = new THREE.BufferGeometry();
-    grid.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    g.add(new THREE.LineSegments(grid, new THREE.LineBasicMaterial({ color: 0x5d6368 })));
-    const border = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0, 0.05), new THREE.Vector3(W, 0, 0.05), new THREE.Vector3(W, D, 0.05),
-      new THREE.Vector3(0, D, 0.05), new THREE.Vector3(0, 0, 0.05),
-    ]);
-    g.add(new THREE.Line(border, new THREE.LineBasicMaterial({ color: 0x00ae42 })));
-    // Build volume outline.
-    const vol = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(W, D, PLATE.height)),
-      new THREE.LineBasicMaterial({ color: 0x9aa3ab, transparent: true, opacity: 0.35 }),
-    );
-    vol.position.set(W / 2, D / 2, PLATE.height / 2);
-    g.add(vol);
-    this.scene.add(g);
+    this.scene.add(plateGroup());
   }
 
   resetCamera() {
@@ -405,6 +373,125 @@ export class Viewer {
     this.renderer.render(this.scene, this.camera);
     return this.renderer.domElement.toDataURL('image/jpeg', 0.8);
   }
+}
+
+/** The build plate: base, grid, border and the build volume outline. */
+function plateGroup() {
+  const g = new THREE.Group();
+  const W = PLATE.width, D = PLATE.depth;
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(W + 16, D + 16, 4),
+    new THREE.MeshStandardMaterial({ color: 0x4b4f54, roughness: 0.9 }),
+  );
+  base.position.set(W / 2, D / 2, -2.05);
+  g.add(base);
+  const surface = new THREE.Mesh(
+    new THREE.PlaneGeometry(W, D),
+    new THREE.MeshStandardMaterial({ color: 0x33373b, roughness: 0.75 }),
+  );
+  surface.position.set(W / 2, D / 2, -0.02);
+  g.add(surface);
+  const pts = [];
+  for (let x = 0; x <= W + 1e-6; x += 10) pts.push(x, 0, 0, x, D, 0);
+  for (let y = 0; y <= D + 1e-6; y += 10) pts.push(0, y, 0, W, y, 0);
+  const grid = new THREE.BufferGeometry();
+  grid.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  g.add(new THREE.LineSegments(grid, new THREE.LineBasicMaterial({ color: 0x5d6368 })));
+  const border = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, 0.05), new THREE.Vector3(W, 0, 0.05), new THREE.Vector3(W, D, 0.05),
+    new THREE.Vector3(0, D, 0.05), new THREE.Vector3(0, 0, 0.05),
+  ]);
+  g.add(new THREE.Line(border, new THREE.LineBasicMaterial({ color: 0x00ae42 })));
+  // Build volume outline.
+  const vol = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(W, D, PLATE.height)),
+    new THREE.LineBasicMaterial({ color: 0x9aa3ab, transparent: true, opacity: 0.35 }),
+  );
+  vol.position.set(W / 2, D / 2, PLATE.height / 2);
+  g.add(vol);
+  return g;
+}
+
+
+/**
+ * Pictures of plates as the student laid them out, for the lab's dashboard.
+ * plates: [{ color: 'White'|'Black', pieces: [{ positions, x, y }] }]
+ * @returns Promise<Blob[]> (JPEG), one per plate
+ */
+export async function renderPlateImages(plates, { width = 1200, height = 900 } = {}) {
+  const canvas = document.createElement('canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1);
+  renderer.setSize(width, height, false);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xdfe3e6);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8f94, 1.6));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+  sun.position.set(-150, -250, 400);
+  scene.add(sun, plateGroup());
+  const W = PLATE.width, D = PLATE.depth;
+  // Main view: close on the pieces. Inset: the whole plate from above, to show where they sit.
+  const camera = new THREE.PerspectiveCamera(32, width / height, 1, 3000);
+  camera.up.set(0, 0, 1);
+  const pad = 14;
+  const top = new THREE.OrthographicCamera(-W / 2 - pad, W / 2 + pad, D / 2 + pad, -D / 2 - pad, 1, 1000);
+  top.position.set(W / 2, D / 2, 500);
+  top.lookAt(W / 2, D / 2, 0);
+  const inset = Math.round(Math.min(width, height) * 0.3);
+  const geoms = new Map();
+  const materials = {};
+  const blobs = [];
+  try {
+    for (const plate of plates) {
+      const group = new THREE.Group();
+      const mat = materials[plate.color] ??= new THREE.MeshStandardMaterial({ roughness: 0.55, color: COLORS[plate.color] ?? COLORS.White });
+      for (const p of plate.pieces) {
+        let geom = geoms.get(p.positions);
+        if (!geom) {
+          geom = new THREE.BufferGeometry();
+          geom.setAttribute('position', new THREE.BufferAttribute(p.positions, 3));
+          geom.computeVertexNormals();
+          geoms.set(p.positions, geom);
+        }
+        const m = new THREE.Mesh(geom, mat);
+        m.position.set(p.x, p.y, 0);
+        group.add(m);
+      }
+      scene.add(group);
+      // Frame the pieces (as the viewer's "frame" does), never closer than a 60 mm box.
+      const box = new THREE.Box3().setFromObject(group);
+      if (box.isEmpty()) box.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(W, D, 10));
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const radius = Math.max(Math.hypot(size.x, size.y, size.z) / 2, 30);
+      const dist = radius / Math.sin((camera.fov * Math.PI) / 360) * 1.25;
+      const dir = new THREE.Vector3(-0.22, -0.78, 0.6).normalize();
+      camera.position.copy(center).addScaledVector(dir, dist);
+      camera.lookAt(center);
+      camera.near = Math.max(1, dist - radius * 3);
+      camera.far = dist + 1500;
+      camera.updateProjectionMatrix();
+      renderer.setScissorTest(false);
+      renderer.setViewport(0, 0, width, height);
+      renderer.render(scene, camera);
+      const x = width - inset - 16, y = 16;
+      renderer.setScissorTest(true);
+      renderer.setScissor(x - 3, y - 3, inset + 6, inset + 6);
+      renderer.setClearColor(0xffffff, 1);
+      renderer.clear();
+      renderer.setScissor(x, y, inset, inset);
+      renderer.setViewport(x, y, inset, inset);
+      renderer.render(scene, top);
+      blobs.push(await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85)));
+      scene.remove(group);
+    }
+  } finally {
+    for (const g of geoms.values()) g.dispose();
+    for (const m of Object.values(materials)) m.dispose();
+    renderer.dispose();
+    renderer.forceContextLoss();
+  }
+  return blobs;
 }
 
 // ---- extrusion templates ----
