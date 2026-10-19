@@ -516,3 +516,17 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
   .details-dialog .grid { grid-template-columns: minmax(0, 1fr); }
   .details-dialog .details { padding: 18px 16px 20px; }
 }
+
+/* ---------- fit the window (desktop) ----------
+   On a large screen the page is exactly the window's height: header, the four
+   columns, and a one-line footer. Nothing scrolls except inside a panel.
+   Smaller or short screens keep normal page scrolling. */
+@media (min-width: 1281px) and (min-height: 620px) {
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+  .topbar { flex: none; }
+  main { flex: 1; min-height: 0; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; padding-bottom: 8px; }
+  .workspace { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  footer { flex: none; padding: 0 16px 8px; }
+  footer p { margin: 0; }
+}
