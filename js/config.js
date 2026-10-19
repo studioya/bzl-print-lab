@@ -22,6 +22,9 @@ export const CONFIG = {
     // false: printing is free for now, and the cost is shown as what it will
     // cost once payment is required. Also set CHARGING in apps-script/Code.gs.
     charging: false,
+    // false: no prices on the page; a note says a pricing policy is coming.
+    // Prices are still calculated and sent to the lab. Also SHOW_COST in Code.gs.
+    showCost: false,
   },
 
   // Minimums for showing a ready date (the backend's SETTINGS.ESTIMATE wins
