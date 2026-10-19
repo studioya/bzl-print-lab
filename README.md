@@ -79,8 +79,8 @@ Two Google accounts are involved:
    - `Schedule.gs` ← [`apps-script/Schedule.gs`](apps-script/Schedule.gs) (the estimate engine)
    - `Dashboard.html` ← [`apps-script/Dashboard.html`](apps-script/Dashboard.html) (*+ → HTML*, name it `Dashboard`)
    - `appsscript.json` ← [`apps-script/appsscript.json`](apps-script/appsscript.json)
-4. At the top of `Code.gs`, set `LAB_EMAIL` to the lab Gmail address. Check the other `SETTINGS`
-   (opening hours, handling time, number of printers, retention periods).
+4. (Optional) At the top of `Code.gs`, check the `SETTINGS` (opening hours, handling time, number of
+   printers, retention periods). The defaults are ready to use.
 5. Choose **`setup`** in the toolbar and press **Run**. Approve the permissions (Google warns the
    app is unverified: *Advanced → Go to … (unsafe)*; it's your own script). The execution log shows
    the links to the new **BZL Print Lab** folder, the **Data** sheet, the **Outbox** sheet and the
