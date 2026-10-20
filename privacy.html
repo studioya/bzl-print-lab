@@ -75,7 +75,7 @@
         <li>לבקש לתקן או למחוק מידע שאינו נכון, שלם, ברור או מעודכן (סעיף 14 לחוק).</li>
         <li>לבקש למחוק את פרטי הקשר שלכם לאחר שהבקשה הסתיימה, גם לפני תום תקופת השמירה.</li>
       </ul>
-      <p class="contact">לפניות בנושא פרטיות: <span data-lab-email>השיבו לכל הודעת דוא״ל שקיבלתם מהמעבדה</span>, או פנו אלינו במרכז הדיגום. נשיב תוך 30 יום.</p>
+      <p class="contact">לפניות בנושא פרטיות: <a href="mailto:yarden@bezalel.ac.il" dir="ltr">yarden@bezalel.ac.il</a>. נשיב תוך 30 יום.</p>
 
       <h2>9. שינויים</h2>
       <p>אם נשנה הודעה זו, נעדכן את התאריך בראשה.</p>
@@ -133,27 +133,12 @@
         <li>To ask for information that is wrong, incomplete, unclear or out of date to be corrected or deleted (section 14).</li>
         <li>To ask for your contact details to be deleted once your request is finished, even before the retention period ends.</li>
       </ul>
-      <p class="contact">For privacy requests: <span data-lab-email>reply to any email you received from the lab</span>, or come to the Modelling Center. We reply within 30 days.</p>
+      <p class="contact">For privacy requests: <a href="mailto:yarden@bezalel.ac.il">yarden@bezalel.ac.il</a>. We reply within 30 days.</p>
 
       <h2>9. Changes</h2>
       <p>If we change this notice, we update the date at the top.</p>
     </article>
   </main>
 
-  <script type="module">
-    // Shows the lab's email address (js/config.js → labEmail) once it's set.
-    import { CONFIG } from './js/config.js';
-    if (CONFIG.labEmail) {
-      document.querySelectorAll('[data-lab-email]').forEach((el) => {
-        const he = el.closest('[lang=he]');
-        el.innerHTML = '';
-        const a = document.createElement('a');
-        a.href = 'mailto:' + CONFIG.labEmail;
-        a.textContent = CONFIG.labEmail;
-        a.dir = 'ltr';
-        el.append(he ? 'כתבו אל ' : 'write to ', a);
-      });
-    }
-  </script>
 </body>
 </html>

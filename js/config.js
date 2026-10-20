@@ -13,9 +13,6 @@ export const CONFIG = {
     // { id: 'architecture', en: 'Bezalel Architecture Modelling Center', he: 'מרכז הדיגום של המחלקה לארכיטקטורה' },
   ],
 
-  // The lab's email address, shown on the privacy notice for privacy requests.
-  labEmail: '',
-
   // Pricing (shekels): material by weight + printing time (warm-up not charged),
   // with a minimum charge per plate.
   pricing: {
