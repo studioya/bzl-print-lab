@@ -15,13 +15,13 @@
  *
  * Data (spreadsheet "BZL Print Lab – Data"):
  *   Requests  one row per submission, no personal details (kept for analysis)
- *   Contacts  name / ID number / email / phone / notes — wiped CONTACT_RETENTION_DAYS after the request closes
+ *   Contacts  name / email / phone / notes — wiped CONTACT_RETENTION_DAYS after the request closes
  *   Plates    one row per plate: state, printer, times
  *   Printers  the six printers, up/down
  *   History   who did what, when
  *   ClosedDates  days the lab is closed (holidays) — prints aren't started then
  * Students are identified in the data by a pseudonymous key: a keyed hash of
- * their ID number (the key is a secret in Script Properties), so one student's
+ * their email address (the key is a secret in Script Properties), so one student's
  * requests can be linked without storing who they are.
  *
  * Setup: see README.md → "Deploy the backend". Schedule.gs (the estimate
@@ -90,7 +90,7 @@ const TABS = {
     ['readyAt', 'Ready at', 130], ['closedAt', 'Closed at', 130], ['labNotes', 'Lab notes', 220], ['filesDeleted', 'Files deleted', 110],
   ],
   Contacts: [
-    ['id', 'Submission', 110], ['name', 'Name', 150], ['idNumber', 'ID number', 100], ['email', 'Email', 200],
+    ['id', 'Submission', 110], ['name', 'Name', 150], ['idNumber', 'ID number (not collected)', 100], ['email', 'Email', 200],
     ['phone', 'Phone', 120], ['notes', 'Student notes', 260], ['purgedAt', 'Wiped at', 130],
   ],
   Plates: [
@@ -476,7 +476,7 @@ function begin_(req) {
   withLock_(function () {
     append_('Requests', {
       id: id, submitted: now, status: 'Uploading', statusChanged: now, order: now.getTime(),
-      studentKey: studentKey_(v.idNumber), department: v.department, course: v.course, deadline: v.deadline,
+      studentKey: studentKey_(v.email), department: v.department, course: v.course, deadline: v.deadline,
       profile: v.profileLabel, colors: v.plateColors.join(', '), layout: v.layout, plates: v.plates.length,
       pieces: v.copies, estMinutes: v.estMinutes, estCost: v.estCost, grams: v.grams, supports: v.supports ? 'Yes' : 'No',
       objects: v.objects.map(function (x) {
@@ -484,7 +484,7 @@ function begin_(req) {
       }).join('\n'),
       files: '', folderId: folder.getId(), platesFileId: '', estReadyAtSubmit: '', readyAt: '', closedAt: '', labNotes: '', filesDeleted: '',
     });
-    append_('Contacts', { id: id, name: v.name, idNumber: v.idNumber, email: v.email, phone: v.phone, notes: v.notes, purgedAt: '' });
+    append_('Contacts', { id: id, name: v.name, idNumber: '', email: v.email, phone: v.phone, notes: v.notes, purgedAt: '' });
     v.plates.forEach(function (p, i) {
       append_('Plates', {
         key: id + '-' + (i + 1), id: id, n: i + 1, name: p.name, color: p.color, estMinutes: p.minutes, grams: p.grams,
@@ -587,7 +587,6 @@ function validate_(d, o) {
   }
   const v = {
     name: str(d.name, 80),
-    idNumber: str(d.idNumber, 12),
     email: str(d.email, 120).toLowerCase(),
     phone: str(d.phone, 20),
     department: str(d.department, 80),
@@ -620,7 +619,6 @@ function validate_(d, o) {
   };
   const problems = [];
   if (v.name.length < 2) problems.push('name');
-  if (!/^[0-9A-Za-z]{5,12}$/.test(v.idNumber)) problems.push('ID number');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email)) problems.push('email');
   if (!/^[+0-9][0-9 \-]{7,18}$/.test(v.phone)) problems.push('phone');
   if (v.department.length < 2) problems.push('department');
@@ -637,24 +635,38 @@ function validate_(d, o) {
 }
 
 /**
- * A stable pseudonym for a student: keyed hash of the normalised ID number.
- * The same ID always gives the same key; without the secret it can't be
- * reversed (or recomputed from a list of ID numbers).
+ * A stable pseudonym for a student: keyed hash of their normalised email.
+ * The same address always gives the same key; without the secret it can't be
+ * reversed (or recomputed from a list of addresses). Students aren't asked for
+ * an ID number at all.
  */
-function studentKey_(idNumber) {
+function studentKey_(email) {
   const props = PropertiesService.getScriptProperties();
   let secret = props.getProperty('STUDENT_KEY_SECRET');
   if (!secret) {
     secret = Utilities.getUuid() + Utilities.getUuid();
     props.setProperty('STUDENT_KEY_SECRET', secret);
   }
-  let norm = String(idNumber).toUpperCase().replace(/[^0-9A-Z]/g, '');
-  if (/^\d+$/.test(norm)) norm = ('000000000' + norm).slice(-9);
+  const norm = normalizeEmail_(email);
   const sig = Utilities.computeHmacSha256Signature(norm, secret);
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
   let s = '';
   for (let i = 0; i < 10; i++) s += chars.charAt(((sig[i] % 256) + 256) % 256 % chars.length);
   return 'S-' + s;
+}
+
+/**
+ * One form per mailbox: lower case, no "+tag", and for Gmail no dots
+ * (dana.levi+print@gmail.com and danalevi@gmail.com are the same inbox).
+ */
+function normalizeEmail_(email) {
+  const parts = String(email || '').trim().toLowerCase().split('@');
+  if (parts.length !== 2) return parts.join('@');
+  let local = parts[0].split('+')[0];
+  let domain = parts[1];
+  if (domain === 'googlemail.com') domain = 'gmail.com';
+  if (domain === 'gmail.com') local = local.replace(/\./g, '');
+  return local + '@' + domain;
 }
 
 function rateLimit_(email) {

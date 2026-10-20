@@ -80,14 +80,19 @@ test('a submission is queued with its plates, no personal data in Requests, and 
   assert.equal(b.outbox().rows.length, 2);
 });
 
-test('the same student gets the same key; a different one a different key', () => {
+test('the student key comes from the email (same inbox → same key); no ID number is stored', () => {
   const b = setupBackend();
-  submit(b);
-  submit(b, order(), { ...details, idNumber: '12345678', email: 'other@example.com' }); // same ID without the leading 0
-  submit(b, order(), { ...details, idNumber: '987654321' });
+  const g = { ...details, email: 'dana.levi@gmail.com' };
+  submit(b, order(), g);
+  submit(b, order(), { ...g, email: 'DanaLevi+print@Gmail.com' }); // same Gmail inbox
+  submit(b, order(), { ...g, email: 'dana.levi@example.com' });
   const keys = rowsOf(b, 'Requests').map((r) => r['Student key']);
   assert.equal(keys[0], keys[1]);
   assert.notEqual(keys[0], keys[2]);
+  assert.ok(rowsOf(b, 'Contacts').every((c) => c['ID number (not collected)'] === ''));
+  // Submitting without an ID number is fine.
+  const { idNumber, ...noId } = details;
+  submit(b, order(), { ...noId, email: 'x@example.com' });
 });
 
 test('bad input is refused with a clear message', () => {
@@ -233,7 +238,7 @@ test('nightly: abandons unfinished uploads, wipes contacts after the retention p
   b.run('nightly()');
   contacts = rowsOf(b, 'Contacts');
   const c = contacts.find((x) => x.Submission === r.id);
-  assert.deepEqual([c.Name, c['ID number'], c.Email, c.Phone, c['Student notes']], ['', '', '', '', '']);
+  assert.deepEqual([c.Name, c['ID number (not collected)'], c.Email, c.Phone, c['Student notes']], ['', '', '', '', '']);
   assert.ok(c['Wiped at']);
   reqs = rowsOf(b, 'Requests');
   assert.ok(reqs.find((x) => x.Submission === r.id)['Student key'], 'analysis data kept');

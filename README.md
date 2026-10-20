@@ -154,12 +154,12 @@ columns; add your own columns only to the right of the existing ones, or use ano
 | Requests | one row per submission: dates, status, department, course, profile, plates, estimates, ready/closed times… | always (for analysis) |
 | Plates | one row per plate: estimated and actual minutes, printer, attempts, failures | always |
 | History | who did what, when | always |
-| Contacts | name, ID number, email, phone, student notes | wiped 180 days after the request closes |
+| Contacts | name, email, phone, student notes (no ID number is collected) | wiped 180 days after the request closes |
 | Printers, ClosedDates | the dashboard's settings | |
 
-Students are identified in *Requests* by a **student key** (`S-…`): a keyed hash of their ID number.
+Students are identified in *Requests* by a **student key** (`S-…`): a keyed hash of their email address (normalised, so `Dana.Levi+x@gmail.com` and `danalevi@gmail.com` match).
 The same student always gets the same key, so you can analyse repeat use, but the key can't be turned
-back into an ID number. The secret it uses is in the script's *Project Settings → Script
+back into an email address. The secret it uses is in the script's *Project Settings → Script
 Properties* (`STUDENT_KEY_SECRET`): **don't delete or change it**, or new keys won't match old ones.
 
 Every night the script wipes contact details that are due, deletes model files 365 days after a
@@ -282,3 +282,10 @@ No build step: the page is plain ES modules.
 - [Clipper](https://sourceforge.net/projects/jsclipper/) (JS port) 6.4.2 — Boost Software License
 - Base presets in `profiles/bambu-base/` are from [Bambu Studio](https://github.com/bambulab/BambuStudio) — AGPL-3.0
 - The gyroid wave generator follows PrusaSlicer/Bambu Studio's `FillGyroid` — AGPL-3.0
+
+## Privacy notice
+
+[`privacy.html`](privacy.html) is the students' privacy notice (Hebrew, with an English translation),
+linked from the consent checkbox and the footer. Set `labEmail` in `js/config.js` to show the lab's
+address on it. If retention periods or what the form asks for change, update the notice too, and have
+it checked by Bezalel's legal adviser or privacy officer.

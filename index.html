@@ -5,13 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BZL Print Lab</title>
   <meta name="description" content="Upload a 3D model, slice it with the lab's Bambu Lab P1S profiles, get a time and cost estimate and submit it for printing.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2300ae42'/%3E%3Cpath d='M8 22h16M10 18h12M12 14h8M14 10h4' stroke='white' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
 </head>
-<body>
+<body class="app">
   <header class="topbar">
     <div class="brand">
       <span class="logo" aria-hidden="true"></span>
@@ -260,10 +257,6 @@
             <input id="fName" name="name" required maxlength="80" autocomplete="name">
           </div>
           <div class="field">
-            <label for="fId">ID number <span class="he" lang="he" dir="rtl">מספר תעודת זהות</span></label>
-            <input id="fId" name="idNumber" required inputmode="numeric" maxlength="12" pattern="[0-9A-Za-z]{5,12}">
-          </div>
-          <div class="field">
             <label for="fEmail">Email <span class="he" lang="he" dir="rtl">דוא״ל</span></label>
             <input id="fEmail" name="email" type="email" required maxlength="120" autocomplete="email">
           </div>
@@ -299,8 +292,8 @@
           </div>
           <label class="consent full">
             <input type="checkbox" id="fConsent" required>
-            <span>I confirm the details are correct and understand the time and cost shown are estimates. My details are used only by the lab to handle this print.
-              <span class="he" lang="he" dir="rtl">אני מאשר/ת שהפרטים נכונים ומבין/ה שהזמן והעלות המוצגים הם הערכה בלבד. הפרטים ישמשו את המעבדה לטיפול בהדפסה זו בלבד.</span></span>
+            <span>I confirm the details are correct, understand the time shown is an estimate, and have read the <a href="privacy.html" target="_blank" rel="noopener">privacy notice</a>.
+              <span class="he" lang="he" dir="rtl">אני מאשר/ת שהפרטים נכונים, מבין/ה שהזמן המוצג הוא הערכה בלבד, וקראתי את <a href="privacy.html" target="_blank" rel="noopener">הודעת הפרטיות</a>.</span></span>
           </label>
         </div>
         <div class="submit-row">
@@ -345,7 +338,8 @@
 
   <footer>
     <p>Bezalel FabLab · Bambu Lab P1S profiles · Estimates are approximate
-      <span class="he" lang="he" dir="rtl">ההערכות משוערות</span></p>
+      <span class="he" lang="he" dir="rtl">ההערכות משוערות</span>
+      · <a href="privacy.html">Privacy <span class="he" lang="he" dir="rtl">פרטיות</span></a></p>
   </footer>
 
   <div class="fatal" id="fatal" role="alert" hidden></div>
