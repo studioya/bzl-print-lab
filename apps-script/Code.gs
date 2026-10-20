@@ -218,7 +218,11 @@ function read_(name) {
 function rowValues_(cols, obj) {
   return cols.map(function (c) {
     const v = obj[c[0]];
-    return v === undefined || v === null ? '' : v;
+    if (v === undefined || v === null) return '';
+    // A leading apostrophe makes Sheets keep text as typed: phone and ID
+    // numbers keep their leading 0, dates stay "2026-11-01". It isn't stored.
+    if (typeof v === 'string' && v !== '' && TEXT_KEYS.indexOf(c[0]) >= 0) return "'" + v;
+    return v;
   });
 }
 
@@ -722,13 +726,20 @@ function esc_(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
 }
 
+/** "2026-11-01" → "1 Nov 2026" (written out, so it can't be misread). */
+function fmtYmd_(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || ''));
+  if (!m) return v ? fmtDate_(ms_(v) || 0, 'd MMM yyyy') : '';
+  return Utilities.formatDate(new Date(Date.UTC(+m[1], m[2] - 1, +m[3], 10)), SETTINGS.TIMEZONE, 'd MMM yyyy');
+}
+
 function fmtEstimate_(est, issue) {
   if (!est && issue === 'far') {
     const w = Math.round(SETTINGS.ESTIMATE.MAX_WORKING_DAYS / 5);
     return { en: 'more than ' + w + ' weeks (the queue is long)', he: 'יותר מ־' + w + ' שבועות (התור ארוך)' };
   }
   if (!est) return { en: 'can\'t be estimated right now', he: 'לא ניתן להעריך כרגע' };
-  const day = Utilities.formatDate(new Date(est.ready), SETTINGS.TIMEZONE, 'dd/MM/yyyy');
+  const day = Utilities.formatDate(new Date(est.ready), SETTINGS.TIMEZONE, 'd MMM yyyy'); // 20 Oct 2026
   const range = est.days === 0 ? '' : ' (' + est.days + '–' + est.daysMax + ' working days)';
   const rangeHe = est.days === 0 ? '' : ' (' + est.days + '–' + est.daysMax + ' ימי עבודה)';
   return { en: 'around ' + day + range, he: 'בסביבות ' + day + rangeHe };
@@ -787,7 +798,7 @@ function buildEmail_(kind, r, contact, opts) {
       ['Submission number', 'מספר הגשה', r.id],
       ['Profile', 'פרופיל', r.profile],
       ['Plates', 'פלטות', r.plates + ' (' + r.colors + ')'],
-      ['Needed by', 'תאריך יעד', r.deadline],
+      ['Needed by', 'תאריך יעד', fmtYmd_(r.deadline)],
       ['Estimated print time', 'זמן הדפסה משוער', r.estMinutes + ' min'],
       !SETTINGS.SHOW_COST ? ['Cost', 'עלות', 'Bezalel is working on a pricing policy. Printing won\'t always be free. · בצלאל עובדת על מדיניות תמחור. ההדפסות לא יהיו תמיד ללא תשלום.']
         : SETTINGS.CHARGING ? ['Estimated cost', 'עלות משוערת', '₪' + r.estCost]

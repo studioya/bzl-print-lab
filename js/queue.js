@@ -87,10 +87,12 @@ export function estimateFor(snapshot, plates, now = Date.now()) {
   return estimateRange(r.ready, input);
 }
 
-const dayEn = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' });
-const dayHe = new Intl.DateTimeFormat('he-IL', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'numeric' });
+// Written-out dates ("Tue 20 Oct 2026", "יום שלישי, 20 באוקטובר 2026"), never 20/10, so they can't be misread.
+const dayEnFmt = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+const dayEn = { format: (d) => { const p = {}; dayEnFmt.formatToParts(d).forEach((x) => { p[x.type] = x.value; }); return `${p.weekday} ${p.day} ${p.month} ${p.year}`; } };
+const dayHe = new Intl.DateTimeFormat('he-IL', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-/** "around Tue 20 Oct (2–3 working days)" in both languages. */
+/** "around Tue 20 Oct 2026 (2–3 working days)" in both languages. */
 export function formatEstimate(est) {
   if (!est) return { en: 'not available right now', he: 'לא זמין כרגע' };
   const d = new Date(est.ready);

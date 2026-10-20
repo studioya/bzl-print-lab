@@ -15,7 +15,7 @@
 
 const MAILER = {
   OUTBOX_ID: '',                         // from the backend's setup log
-  FROM_NAME: 'Bezalel Modelling Center · מרכז הדיגום',
+  FROM_NAME: 'Bezalel Modelling Center',     // plain, one language: mixed-script sender names look like spam
   MAX_ATTEMPTS: 5,
   PER_RUN: 40,                           // emails per run at most
   KEEP_QUOTA: 5,                         // leave a few of the daily quota for manual use

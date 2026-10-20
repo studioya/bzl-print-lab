@@ -306,3 +306,12 @@ test('estimates below the minimums are withheld, with the reason', () => {
   assert.match(b.outbox().rows[1][4], /working on a pricing policy/);
   assert.doesNotMatch(b.outbox().rows[1][4], /₪17/);
 });
+
+test('text columns are written so Sheets keeps leading zeros and dates as typed', () => {
+  const b = setupBackend();
+  const vals = JSON.parse(b.run(`JSON.stringify(rowValues_(TABS.Contacts, { id: 'P1', name: 'Dana', idNumber: '012345678', email: 'a@b.co', phone: '0501234567', notes: '' }))`));
+  assert.deepEqual(vals, ["'P1", 'Dana', "'012345678", 'a@b.co', "'0501234567", '', '']);
+  submit(b, order(), { ...details, phone: '0501234567' });
+  assert.equal(rowsOf(b, 'Contacts')[0].Phone, '0501234567');
+  assert.match(b.outbox().rows[1][4], /1 Nov 2026/, 'needed-by date written out in the email');
+});
