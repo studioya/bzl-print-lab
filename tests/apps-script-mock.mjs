@@ -25,11 +25,13 @@ function makeServices({ user = 'owner@example.com', effective = 'owner@example.c
   const mails = [];
   const session = { active: user, effective };
   let nextId = 1;
+  let services; // the fixed clock, when given, is services.clock
+  const nowMs = () => (services && services.clock ? services.clock.t : Date.now());
 
   const iter = (list) => { let i = 0; return { hasNext: () => i < list.length, next: () => list[i++] }; };
   const makeFile = (name, bytes, folder) => {
     const file = {
-      id: 'fil' + nextId++, name, bytes, folder, trashed: false, created: new Date(),
+      id: 'fil' + nextId++, name, bytes, folder, trashed: false, created: new Date(nowMs()),
       getName() { return this.name; }, getUrl() { return 'https://drive.google.com/file/d/' + this.id; }, getId() { return this.id; },
       moveTo(f) { this.folder = f; }, setTrashed(t) { this.trashed = t; }, getDateCreated() { return this.created; },
       getBlob() { const f = this; return { name: f.name, bytes: f.bytes, setName(n) { this.name = n; return this; }, getName() { return this.name; }, getBytes() { return [...f.bytes]; } }; },
@@ -106,7 +108,7 @@ function makeServices({ user = 'owner@example.com', effective = 'owner@example.c
     return b;
   };
 
-  const services = {
+  services = {
     console: { ...console, error() {}, warn() {} },
     DriveApp: {
       getRootFolder: () => root,

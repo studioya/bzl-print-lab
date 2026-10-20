@@ -475,7 +475,7 @@ dialog h3 { margin-top: 0; }
       '<div class="dh"><span class="id">' + esc(r.id) + '</span>' + statusPill(r.status) + '<button class="x" id="dClose" aria-label="Close">×</button></div>' +
       '<section><h3>' + bi('Student', 'סטודנט/ית') + '</h3><dl class="kv">' +
         (r.name ? kv('Name', 'שם', esc(r.name)) + kv('Email', 'מייל', '<a href="mailto:' + esc(r.email) + '">' + esc(r.email) + '</a>') +
-          kv('Phone', 'טלפון', esc(r.phone)) + kv('ID number', 'ת״ז', esc(r.idNumber)) : kv('Contact', 'פרטי קשר', bi('wiped (retention period ended)', 'נמחקו בתום תקופת השמירה'))) +
+          kv('Phone', 'טלפון', esc(r.phone)) : kv('Contact', 'פרטי קשר', bi('wiped (retention period ended)', 'נמחקו בתום תקופת השמירה'))) +
         kv('Department', 'מחלקה', esc(r.department)) + kv('Course', 'קורס', esc(r.course)) + kv('Needed by', 'תאריך יעד', esc(fmtDay(r.deadline)) + ' ' + flags(r)) +
         kv('Student notes', 'הערות', esc(r.notes)) + kv('Student key', 'מזהה', '<span class="muted">' + esc(r.studentKey) + '</span>') +
       '</dl></section>' +

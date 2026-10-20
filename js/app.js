@@ -1334,7 +1334,6 @@ function chosenDepartment() {
 
 const FIELD_RULES = {
   fName: (v) => v.trim().length >= 2,
-  fId: (v) => /^[0-9A-Za-z]{5,12}$/.test(v.trim()),
   fEmail: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()),
   fPhone: (v) => /^[+0-9][0-9 \-]{7,18}$/.test(v.trim()),
   fDept: (v) => !!v && (v !== OTHER_DEPT || $('fDeptOther').value.trim().length >= 2),
@@ -1451,7 +1450,6 @@ async function onSubmit(e) {
   const fileName = (id) => state.files.find((f) => f.id === id)?.file.name || '';
   const details = {
     name: $('fName').value.trim(),
-    idNumber: $('fId').value.trim(),
     email: $('fEmail').value.trim(),
     phone: $('fPhone').value.trim(),
     department: chosenDepartment(),
