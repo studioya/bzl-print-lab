@@ -43,18 +43,6 @@
             <button type="button" class="dismiss" data-dismiss="loadError" aria-label="Dismiss message" data-tip="Dismiss" data-tip-he="סגירה">✕</button>
           </div>
           <ul class="object-list" id="objectList" aria-label="Objects on the plate"></ul>
-          <div class="selected-panel" id="selectedPanel" hidden>
-            <div class="units-row">
-              <label for="units">File units <span class="he" lang="he" dir="rtl">יחידות הקובץ</span></label>
-              <select id="units">
-                <option value="1">mm</option>
-                <option value="10">cm</option>
-                <option value="25.4">inch</option>
-                <option value="1000">m</option>
-              </select>
-            </div>
-            <p class="hint warn" id="unitsHint" hidden></p>
-          </div>
         </div>
 
         <!-- 2. Print settings -->
@@ -102,6 +90,18 @@
             </div>
           </div>
           <div class="size-tools" id="sizeTools" hidden>
+            <div class="selected-panel" id="selectedPanel" hidden>
+              <div class="units-row">
+                <label for="units">File units <span class="he" lang="he" dir="rtl">יחידות הקובץ</span></label>
+                <select id="units">
+                  <option value="1">mm</option>
+                  <option value="10">cm</option>
+                  <option value="25.4">inch</option>
+                  <option value="1000">m</option>
+                </select>
+              </div>
+              <p class="hint warn" id="unitsHint" hidden></p>
+            </div>
             <div class="size-grid" role="group" aria-label="Scale and size in millimetres">
               <span class="size-label">Scale % · size mm <span class="he" lang="he" dir="rtl">קנה מידה · מידות</span></span>
               <label class="axis-input" data-tip="Scale" data-tip-desc="Size as a percentage of the file. Scaling always keeps the proportions." data-tip-he="קנה מידה באחוזים מגודל הקובץ. שינוי הגודל שומר תמיד על הפרופורציות."><span class="axis">%</span><input type="number" id="scalePct" min="1" max="1000" step="1" inputmode="decimal" aria-label="Scale percent"></label>
@@ -273,7 +273,8 @@
           </div>
           <div class="field">
             <label for="fDept">Department <span class="he" lang="he" dir="rtl">מחלקה</span></label>
-            <input id="fDept" name="department" required maxlength="80">
+            <select id="fDept" name="department" required></select>
+            <input id="fDeptOther" name="departmentOther" maxlength="80" hidden placeholder="Your department or program · המחלקה או התוכנית שלך" aria-label="Department (other)">
           </div>
           <div class="field">
             <label for="fCourse">Course <span class="he" lang="he" dir="rtl">קורס</span></label>

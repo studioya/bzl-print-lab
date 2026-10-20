@@ -1307,12 +1307,37 @@ function initDetailsDialog() {
   dlg.addEventListener('cancel', (e) => { if (submitting) e.preventDefault(); }); // Esc mid-upload
 }
 
+// ---------------------------------------------------------------- department menu
+
+const OTHER_DEPT = '__other';
+
+function initDepartments() {
+  const sel = $('fDept');
+  const opt = (value, label) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+  sel.innerHTML = `<option value="" disabled selected>Choose… · בחירה…</option>` +
+    (CONFIG.departments || []).map((g) => `<optgroup label="${escapeHtml(`${g.group} · ${g.groupHe}`)}">` +
+      g.items.map((d) => opt(d.en, `${d.en} · ${d.he}`)).join('') + '</optgroup>').join('') +
+    `<optgroup label="Other · אחר">${opt(OTHER_DEPT, 'Other (type it in) · אחר (הקלדה)')}</optgroup>`;
+  const sync = () => {
+    const other = sel.value === OTHER_DEPT;
+    $('fDeptOther').hidden = !other;
+    if (other) $('fDeptOther').focus();
+  };
+  sel.addEventListener('change', sync);
+  $('fDeptOther').addEventListener('input', () => sel.classList.remove('invalid'));
+}
+
+function chosenDepartment() {
+  const v = $('fDept').value;
+  return v === OTHER_DEPT ? $('fDeptOther').value.trim() : v;
+}
+
 const FIELD_RULES = {
   fName: (v) => v.trim().length >= 2,
   fId: (v) => /^[0-9A-Za-z]{5,12}$/.test(v.trim()),
   fEmail: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()),
   fPhone: (v) => /^[+0-9][0-9 \-]{7,18}$/.test(v.trim()),
-  fDept: (v) => v.trim().length >= 2,
+  fDept: (v) => !!v && (v !== OTHER_DEPT || $('fDeptOther').value.trim().length >= 2),
   fCourse: (v) => v.trim().length >= 2,
   fDeadline: (v) => !!v && v >= $('fDeadline').min,
 };
@@ -1325,6 +1350,9 @@ function validateForm() {
     el.classList.toggle('invalid', !good);
     if (!good && !firstBad) firstBad = el;
   }
+  const otherBad = $('fDept').value === OTHER_DEPT && $('fDeptOther').value.trim().length < 2;
+  $('fDeptOther').classList.toggle('invalid', otherBad);
+  if (otherBad && firstBad === $('fDept')) firstBad = $('fDeptOther');
   const center = chosenCenter();
   $('fCenter').classList.toggle('invalid', !center);
   if (!center && !firstBad) firstBad = document.querySelector('input[name=center]');
@@ -1426,7 +1454,7 @@ async function onSubmit(e) {
     idNumber: $('fId').value.trim(),
     email: $('fEmail').value.trim(),
     phone: $('fPhone').value.trim(),
-    department: $('fDept').value.trim(),
+    department: chosenDepartment(),
     course: $('fCourse').value.trim(),
     deadline: $('fDeadline').value,
     notes: $('fNotes').value.trim(),
@@ -1532,6 +1560,7 @@ function fmtDuration(sec) {
 initTooltips();
 initTracking();
 initDetailsDialog();
+initDepartments();
 initCenters();
 initProfiles();
 initControls();
