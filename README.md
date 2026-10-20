@@ -286,6 +286,6 @@ No build step: the page is plain ES modules.
 ## Privacy notice
 
 [`privacy.html`](privacy.html) is the students' privacy notice (Hebrew, with an English translation),
-linked from the consent checkbox and the footer. Set `labEmail` in `js/config.js` to show the lab's
-address on it. If retention periods or what the form asks for change, update the notice too, and have
+linked from the consent checkbox and the footer. Privacy requests go to yarden@bezalel.ac.il (in the
+page itself). If retention periods or what the form asks for change, update the notice too, and have
 it checked by Bezalel's legal adviser or privacy officer.
