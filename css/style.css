@@ -532,3 +532,10 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
 }
 .done-spam { font-size: 13px; color: var(--ink-2); }
 .done-spam .he { margin-top: 4px; }
+/* Copies, Split and ✕ always share one line, even when the column shows a scrollbar. */
+.obj { padding: 10px 10px 10px 12px; }
+.obj-actions { flex-wrap: nowrap; gap: 4px; }
+.obj-actions .obj-spacer { min-width: 0; }
+.obj .stepper input { width: 30px; }
+.obj-actions .icon-btn { padding: 0 5px; }
+.obj-actions .obj-copies-label { flex: 0 1 auto; min-width: 0; }
