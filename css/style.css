@@ -530,3 +530,5 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
   footer { flex: none; padding: 0 16px 8px; }
   footer p { margin: 0; }
 }
+.done-spam { font-size: 13px; color: var(--ink-2); }
+.done-spam .he { margin-top: 4px; }

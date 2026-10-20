@@ -11,10 +11,10 @@ export function formatDate(d, tz, pattern) {
   });
   const o = {};
   for (const p of f.formatToParts(d)) o[p.type] = p.value;
-  const v = { yyyy: o.year, yy: o.year.slice(2), MM: o.month.padStart(2, '0'), M: o.month, dd: o.day.padStart(2, '0'), d: o.day,
+  const v = { yyyy: o.year, yy: o.year.slice(2), MMM: new Date(d).toLocaleString('en-GB', { timeZone: tz, month: 'short' }), MM: o.month.padStart(2, '0'), M: o.month, dd: o.day.padStart(2, '0'), d: o.day,
     HH: String(+o.hour % 24).padStart(2, '0'), H: String(+o.hour % 24), mm: o.minute.padStart(2, '0'), m: String(+o.minute),
     u: String({ Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 }[o.weekday]) };
-  return pattern.replace(/yyyy|yy|MM|M|dd|d|HH|H|mm|m|u/g, (t) => v[t]);
+  return pattern.replace(/yyyy|yy|MMM|MM|M|dd|d|HH|H|mm|m|u/g, (t) => v[t]);
 }
 
 function makeServices({ user = 'owner@example.com', effective = 'owner@example.com', now } = {}) {
@@ -53,7 +53,8 @@ function makeServices({ user = 'owner@example.com', effective = 'owner@example.c
   const root = makeFolder('My Drive');
 
   const spreadsheets = [];
-  const clone = (v) => (v && typeof v.getTime === 'function' ? new Date(v.getTime()) : v);
+  // Like Sheets: a leading apostrophe forces text and isn't stored.
+  const clone = (v) => (v && typeof v.getTime === 'function' ? new Date(v.getTime()) : typeof v === 'string' && v[0] === "'" ? v.slice(1) : v);
   const makeTab = (name, ss) => {
     const tab = { name, rows: [], hidden: [] };
     const range = (r, c, nr, nc) => ({

@@ -218,8 +218,19 @@ dialog h3 { margin-top: 0; }
   }
 
   // ---------- formatting (always Israel time)
-  const dtf = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-  const df = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, weekday: 'short', day: '2-digit', month: '2-digit' });
+  // Dates are always written out ("Mon 20 Oct 2026"), never 20/10, so they can't be misread.
+  const dtf = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  function longDate(ms) {
+    const p = {};
+    dtf.formatToParts(new Date(ms)).forEach((x) => { p[x.type] = x.value; });
+    return { day: p.weekday + ' ' + p.day + ' ' + p.month + ' ' + p.year, time: p.hour + ':' + p.minute };
+  }
+  /** "2026-11-01" → "Sun 1 Nov 2026". */
+  function fmtDay(ymd) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd || '');
+    if (!m) return ymd || '';
+    return longDate(Date.UTC(+m[1], m[2] - 1, +m[3], 10)).day;
+  }
   const tf = new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   const dayKey = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(ms));
   function when(ms) {
@@ -227,7 +238,8 @@ dialog h3 { margin-top: 0; }
     const today = dayKey(S.data.now);
     const k = dayKey(ms);
     if (k === today) return 'today ' + tf.format(new Date(ms));
-    return dtf.format(new Date(ms)).replace(',', '');
+    const d = longDate(ms);
+    return d.day + ', ' + d.time;
   }
   function dur(min) {
     min = Math.round(min);
@@ -407,7 +419,7 @@ dialog h3 { margin-top: 0; }
         '<span class="c-who">' + esc(r.name || '(details wiped)') + '<div class="sub">' + esc(r.department) + ' · ' + esc(r.course) + '</div></span>' +
         '<span class="c-plates"><div class="dots">' + dots + '</div><div class="sub">' + done + '/' + r.plates.length + ' · ' + dur(r.estMinutes) + '</div></span>' +
         '<span class="c-dates">' + dates + '</span>' +
-        '<span>' + esc(r.deadline) + '<div>' + flags(r) + '</div></span></div>';
+        '<span>' + esc(fmtDay(r.deadline)) + '<div>' + flags(r) + '</div></span></div>';
     }).join('');
     $('list').innerHTML = rows.length ? head + body : '<div class="empty">' + bi('Nothing here', 'אין כאן כלום') + '</div>';
     $('list').querySelectorAll('.row[data-id]').forEach((el) => {
@@ -464,7 +476,7 @@ dialog h3 { margin-top: 0; }
       '<section><h3>' + bi('Student', 'סטודנט/ית') + '</h3><dl class="kv">' +
         (r.name ? kv('Name', 'שם', esc(r.name)) + kv('Email', 'מייל', '<a href="mailto:' + esc(r.email) + '">' + esc(r.email) + '</a>') +
           kv('Phone', 'טלפון', esc(r.phone)) + kv('ID number', 'ת״ז', esc(r.idNumber)) : kv('Contact', 'פרטי קשר', bi('wiped (retention period ended)', 'נמחקו בתום תקופת השמירה'))) +
-        kv('Department', 'מחלקה', esc(r.department)) + kv('Course', 'קורס', esc(r.course)) + kv('Needed by', 'תאריך יעד', esc(r.deadline) + ' ' + flags(r)) +
+        kv('Department', 'מחלקה', esc(r.department)) + kv('Course', 'קורס', esc(r.course)) + kv('Needed by', 'תאריך יעד', esc(fmtDay(r.deadline)) + ' ' + flags(r)) +
         kv('Student notes', 'הערות', esc(r.notes)) + kv('Student key', 'מזהה', '<span class="muted">' + esc(r.studentKey) + '</span>') +
       '</dl></section>' +
       '<section><h3>' + bi('Print', 'הדפסה') + '</h3><dl class="kv">' +
