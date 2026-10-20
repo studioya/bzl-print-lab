@@ -35,6 +35,35 @@ export const CONFIG = {
   },
   currency: '₪',
 
+  // The "Department" menu on the details form. "Other" (always last) lets
+  // anyone not listed type their own. `en` is what the lab sees.
+  departments: [
+    {
+      group: "Bachelor's", groupHe: 'תואר ראשון',
+      items: [
+        { en: 'Architecture', he: 'אדריכלות' },
+        { en: 'Ceramics and Glass Design', he: 'עיצוב קרמיקה וזכוכית' },
+        { en: 'Fine Arts', he: 'אמנויות' },
+        { en: 'Industrial Design', he: 'עיצוב תעשייתי' },
+        { en: 'Jewelry and Fashion', he: 'צורפות ואופנה' },
+        { en: 'Photography', he: 'צילום' },
+        { en: 'Screen-Based Arts', he: 'אמנויות המסך' },
+        { en: 'Visual and Material Culture', he: 'תרבות חזותית וחומרית' },
+        { en: 'Visual Communication', he: 'תקשורת חזותית' },
+      ],
+    },
+    {
+      group: "Master's", groupHe: 'תואר שני',
+      items: [
+        { en: 'M.Des. Industrial Design', he: 'תואר שני בעיצוב תעשייתי' },
+        { en: 'M.Des. Visual Communication', he: 'תואר שני בתקשורת חזותית' },
+        { en: 'M.F.A. Fine Arts', he: 'תואר שני באמנויות' },
+        { en: 'M.Urb.Des. Urban Design', he: 'תואר שני בעיצוב עירוני' },
+        { en: 'M.A. Policy and Theory of the Arts', he: 'תואר שני במדיניות ותאוריה של האמנויות' },
+      ],
+    },
+  ],
+
   maxFiles: 5,      // model files per submission
   maxObjects: 50,   // objects on the plate (after splitting)
   maxCopies: 10,    // copies of each object

@@ -539,3 +539,9 @@ footer { text-align: center; color: var(--ink-3); font-size: 12px; padding: 10px
 .obj .stepper input { width: 30px; }
 .obj-actions .icon-btn { padding: 0 5px; }
 .obj-actions .obj-copies-label { flex: 0 1 auto; min-width: 0; }
+/* File units now sits at the top of "Orientation & size". */
+.size-tools .selected-panel { margin-bottom: 12px; }
+.size-tools .units-row { margin-top: 0; }
+.field select { width: 100%; }
+.field select.invalid { border-color: var(--danger); background: var(--danger-soft); }
+#fDeptOther { margin-top: 6px; }

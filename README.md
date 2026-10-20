@@ -191,6 +191,7 @@ run `npm run build:gs` to update `apps-script/Schedule.gs`.
 | `pricing.perGram` | `0.05` | ₪ per gram of filament |
 | `pricing.perHour` | `5` | ₪ per hour of estimated printing time; warm-up/prepare time is not charged |
 | `pricing.minimum` | `10` | ₪ minimum for each plate (a plate costing less is charged this) |
+| `departments` | Bezalel's B.A./B.F.A. departments and master's programs | The *Department* menu on the details form, in English and Hebrew; *Other* lets anyone else type theirs |
 | `maxFiles` | `5` | model files per submission |
 | `maxObjects` | `50` | objects on the plate (after splitting) |
 | `maxCopies` | `10` | copies of each object |
